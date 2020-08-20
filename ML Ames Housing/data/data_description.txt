@@ -1,0 +1,523 @@
+MSSubClass: Type de propriété impliqué dans la vente
+
+        20	MAISON DE PLAIN PIED CONSTRUITE EN 1946 & STYLE RECENT
+        30	MAISON DE PLAIN PIED CONSTRUITE EN 1945 & ANCIEN
+        40	MAISON DE PLAIN PIED CONSTRUITE AVEC GRENIER FINIT TOUT ÂGE
+        45	MAISON EN DEMI-NIVEAU - NON FINIT TOUT ÂGE
+        50	MAISON EN DEMI-NIVEAU FINIT TOUT ÂGE
+        60	MAISON A 1 ETAGE CONSTRUITE EN 1946 & RECENT
+        70	MAISON A 1 ETAGE CONSTRUITE EN 1945 & ANCIEN
+        75	MAISON A 1 ETAGE A DEMI-NIVEAU TOUT ÂGE
+        80	MULTI-NIVEAU OU SEPARE
+        85	FOYER SEPARE
+        90	DUPLEX - TOUT STYLE ET ÂGE
+       120	MAISON DE PLAIN PIED EN PROGRAMME PARTICULIER D'URBANISME - 1946 & RECENT
+       150	MAISON PPU EN DEMI-NIVEAU - TOUT ÂGE
+       160	MAISON PPU A 1 ETAGE - 1946 & RECENT
+       180	PPU - MULTINIVEAUX - INCL NIVEAU SEPARE/FOYER
+       190	CONVERSION MAISON 2 FAMILLES - TOUS TYPES ET ÂGES
+
+MSZoning: Identifiant de la classification de la zone de vente.
+		
+       A	Agriculture
+       C	Commercial
+       FV	Zones résidentielles pour retraités sur pilotis
+       I	Industriel
+       RH	Zone Résidentielle Haute Densité
+       RL	Zone Résidentielle Faible Densité
+       RP	Zone Résidentielle Faible Densité & Parc
+       RM	Zone Résidentielle Moyenne Densité
+	
+LotFrontage: Mesure en pieds de rue connectée à la propriété
+
+LotArea: Taille du lot en pieds carrés
+
+Street: Type de rue permettant d'accéder à la propriété
+
+       Grvl  Gravier
+       Pave	 Pavé
+       	
+Alley: Type d'allée permettant d'accéder à la propriété
+
+       Grvl	Gravier
+       Pave	Pavé
+       NA 	Pas d'accès via une allée
+		
+LotShape: Forme globale de la propriété
+
+       Reg	Régulière	
+       IR1	Légèrement Irrégulière
+       IR2	Modérément Irrégulière
+       IR3	Irrégulière
+       
+LandContour: Caractère plat de la propriété
+
+       Lvl	A niveau / Plat	
+       Bnk	Flanc - Montée rapide et significative entre le niveau de la rue et le building
+       HLS	Flanc de Colline - Montée rapide de chaque côté de la propriété
+       Low	Dépression
+		
+Utilities: Type d'utilités disponibles (électricité, gaz...)
+		
+       AllPub	Toutes les commodités (E,G,W,& S)	
+       NoSewr	Electricité, Gaz, et Eau (Fosse Septique)
+       NoSeWa	Electricité et Gaz uniquement
+       ELO	Electricité uniquement
+	
+LotConfig: Configuration du lot
+
+       Inside	Retirée
+       Corner	En coin
+       CulDSac	Cul-de-sac
+       FR2	Mitoyen sur 2 côtés
+       FR3	Mitoyen sur 3 côtés
+	
+LandSlope: Pente de la propriété
+		
+       Gtl	Pente légère
+       Mod	Pente modérée	
+       Sev	Pente sévère
+	
+Neighborhood: Emplacements physiques dans la ville d'Ames
+
+       Blmngtn	Bloomington Heights
+       Blueste	Bluestem
+       BrDale	Briardale
+       BrkSide	Brookside
+       ClearCr	Clear Creek
+       CollgCr	College Creek
+       Crawfor	Crawford
+       Edwards	Edwards
+       Gilbert	Gilbert
+       IDOTRR	Iowa DOT and Rail Road
+       MeadowV	Meadow Village
+       Mitchel	Mitchell
+       Names	North Ames
+       NoRidge	Northridge
+       NPkVill	Northpark Villa
+       NridgHt	Northridge Heights
+       NWAmes	Northwest Ames
+       OldTown	Old Town
+       SWISU	South & West of Iowa State University
+       Sawyer	Sawyer
+       SawyerW	Sawyer West
+       Somerst	Somerset
+       StoneBr	Stone Brook
+       Timber	Timberland
+       Veenker	Veenker
+			
+Condition1: Proximité avec divers environnements
+	
+       Artery	Adjacent à une artère
+       Feedr	Adjacent à une rue passante
+       Norm	Normal
+       RRNn	A 200 pieds de la ligne de train nord-sud
+       RRAn	Adjacent à la ligne de train nord-sud
+       PosN	Proche d'un lieu calme (parc, clairière, ...)
+       PosA	Adjacent à un lieu calme
+       RRNe	A 200 pieds de la ligne de train est-ouest
+       RRAe	Adjacent à la ligne de train est-ouest
+	
+Condition2: Proximité avec divers environnements (si plus d'une est présente)
+		
+       Artery	Adjacent à une artère
+       Feedr	Adjacent à une rue passante
+       Norm	Normal
+       RRNn	A 200 pieds de la ligne de train nord-sud
+       RRAn	Adjacent à la ligne de train nord-sud
+       PosN	Proche d'un lieu calme (parc, clairière, ...)
+       PosA	Adjacent à un lieu calme
+       RRNe	A 200 pieds de la ligne de train est-ouest
+       RRAe	Adjacent à la ligne de train est-ouest
+	
+BldgType: Type de propriété
+		
+       1Fam	Détachée pour une famille
+       2FmCon	Conversion pour 2 familles (à l'origine pour 1 seule)
+       Duplx	Duplex
+       TwnhsE	Maison proche banlieue
+       TwnhsI	Maison de banlieue
+	
+HouseStyle: Style de propriété
+	
+       1Story	Plain pied
+       1.5Fin	Maison en demi-niveau : 1er étage terminé
+       1.5Unf	Maison en demi-niveau : 1er étage non terminé
+       2Story	Maison à étage
+       2.5Fin	Maison à étage en demi-niveau : 2ème étage terminé
+       2.5Unf	Maison à étage en demi-niveau : 2ème étage non terminé
+       SFoyer	Foyer Séparé
+       SLvl	Niveau Séparé
+	
+OverallQual: Evalue le matériel général et les finitions de la maison
+
+       10	Très Excellent
+       9	Excellent
+       8	Très Bon
+       7	Bon
+       6	Au-dessus de la norme
+       5	Normal
+       4	Moins bonnes que la norme
+       3	Satisfaisant
+       2	Pauvre
+       1	Très Pauvre
+	
+OverallCond: Evalue la condition générale de la maison
+
+       10	Très Excellent
+       9	Excellent
+       8	Très Bon
+       7	Bon
+       6	Au-dessus de la norme	
+       5	Normal
+       4	Moins bonnes que la norme	
+       3	Satisfaisant
+       2	Pauvre
+       1	Très Pauvre
+		
+YearBuilt: Date de construction originale
+
+YearRemodAdd: Date de modification / ajout
+
+RoofStyle: Type de toit
+
+       Flat	Plat
+       Gable	Gâble
+       Gambrel	Grange
+       Hip	Arête
+       Mansard	Mansarde
+       Shed	Abri
+		
+RoofMatl: Matériel du toit
+
+       ClyTile	Argile ou Tuiles
+       CompShg	Standard (Composite)
+       Membran	Membrane
+       Metal	Métal
+       Roll	Enroulé
+       Tar&Grv	Gravier & Goudron
+       WdShake	Planches en bois
+       WdShngl	Bardeaux de bois
+		
+Exterior1st: Revêtement extérieur de la maison
+
+       AsbShng	Bardeaux d'Amiante
+       AsphShn	Bardeaux d'Asphalte
+       BrkComm	Brique ordinaire
+       BrkFace	Brique Apparente
+       CBlock	  Parpaing
+       CemntBd	Plaques de ciment
+       HdBoard	Carton traité
+       ImStucc	Imitation Stuc
+       MetalSd	Plaques de métal
+       Other	Autres
+       Plywood	Contreplaqué
+       PreCast	PréFabriqué
+       Stone	Pierre
+       Stucco	Stuc
+       VinylSd	Plaques de vynile
+       Wd Sdng	Panneaux de Bois
+       WdShing	Wood Shingles
+	
+Exterior2nd: Revêtement extérieur de la maison (si plus d'un matériau)
+
+       AsbShng	Bardeaux d'Amiante
+       AsphShn	Bardeaux d'Asphalte
+       BrkComm	Brique ordinaire
+       BrkFace	Brique Apparente
+       CBlock	  Parpaing
+       CemntBd	Plaques de ciment
+       HdBoard	Carton traité
+       ImStucc	Imitation Stuc
+       MetalSd	Plaques de métal
+       Other	Autres
+       Plywood	Contreplaqué
+       PreCast	PréFabriqué
+       Stone	Pierre
+       Stucco	Stuc
+       VinylSd	Plaques de vynile
+       Wd Sdng	Panneaux de Bois
+       WdShing	Wood Shingles
+	
+MasVnrType: Type de maçonnerie (placage)
+
+       BrkCmn	Brique ordinaire
+       BrkFace	Brique apparente
+       CBlock	Parpaing
+       None	Aucun
+       Stone	Pierre
+	
+MasVnrArea: Surface de placage de maçonnerie à l'extérieur
+
+ExterQual: Evalue la qualité du matériel de l'extérieur
+		
+       Ex	Excellent
+       Gd	Bon
+       TA	Normal/Typique
+       Fa	Satisfaisant
+       Po	Pauvre
+		
+ExterCond: Evalue la condition actuelle du matériel d'extérieur
+		
+       Ex	Excellent
+       Gd	Bon
+       TA	Normal/Typique
+       Fa	Satisfaisant
+       Po	Pauvre
+		
+Foundation: Type de fondations
+		
+       BrkTil	Briques et Tuiles
+       CBlock	Parpaings
+       PConc	Dalle de béton	
+       Slab	Dalle coulée
+       Stone	Pierre
+       Wood	Bois
+		
+BsmtQual: Evalue la hauteur du sous-sol
+
+       Ex	Excellent (100+ pouces)	
+       Gd	Bon (90-99 pouces)
+       TA	Typique (80-89 pouces)
+       Fa	Satisfaisant (70-79 pouces)
+       Po	Pauvre (<70 pouces
+       NA	No Basement
+		
+BsmtCond: Evalue l'état général du sous-sol
+
+       Ex	Excellent
+       Gd	Bon
+       TA	Typique - légère humidité admise
+       Fa	Satisfaisant - humidité, craquelures
+       Po	Pauvre - craquelures sévères, inflitrations
+       NA	Pas de sous-sol
+	
+BsmtExposure: Renvoie aux terrasses dénivelées
+
+       Gd	Bonne Exposition
+       Av	Exposition Normale
+       Mn	Exposition Mimimum
+       No	Aucune Exposition
+       NA	Aucune Exposition
+	
+BsmtFinType1: Evaluation de l'aire au sous-sol
+
+       GLQ	Bon aire à vivre
+       ALQ	Normal aire à vivre
+       BLQ	Moins bonnes que la norme aire à vivre	
+       Rec	Normal Rec Room
+       LwQ	Low Quality
+       Unf	Unfinshed
+       NA	No Basement
+		
+BsmtFinSF1: Surface en pieds carrés de type I
+
+BsmtFinType2: Evaluation de l'aire au sol (si plusieurs types)
+
+       GLQ	Bonne aire à vivre
+       ALQ	Aire à vivre Normale
+       BLQ	Aire à vivre moins bonne que la norme 
+       Rec	Normale
+       LwQ	Faible Qualité
+       Unf	Non Terminée
+       NA	Pas de Sous-sol
+
+BsmtFinSF2: Surface en pieds carrés de type II
+
+BsmtUnfSF: Surface du sous-sol non terminée
+
+TotalBsmtSF: Surface totale du sous-sol en pieds carrés
+
+Heating: Type de chauffage
+		
+       Floor	Chauffage au sol
+       GasA	Chaudière à air pulsé
+       GasW	Chaudière à eau au gaz
+       Grav	Tubulure par Gravité
+       OthW	Chauffage autre que le gaz
+       Wall	Chaudière murale
+		
+HeatingQC: Qualité et état du chauffage
+
+       Ex	Excellent
+       Gd	Bon
+       TA	Normal/Typique
+       Fa	Satisfaisant
+       Po	Pauvre
+		
+CentralAir: Air Climatisé
+
+       N	Non
+       Y	Oui
+		
+Electrical: Système éléctrique
+
+       SBrkr	Circuit Standard & Romex
+       FuseA	Boite de fusibles > 60 amp & Romex
+       FuseF	Boite de fusibles > 60 amp & La plupart de Romex (Satisfaisant)
+       FuseP	Boite de fusibles & Câblage tubulaire (Pauvre)
+       Mix	Mixte
+		
+1stFlrSF: Surface en pieds carrés du rez-de-chaussée
+ 
+2ndFlrSF: Surface en pieds carrés du premier étage
+
+LowQualFinSF: Surface de finitions de mauvaise qualité
+
+GrLivArea: Surface au-dessus du sol
+
+BsmtFullBath: Salle de bains au sous-sol
+
+BsmtHalfBath: Salle d'eau au sous-sol
+
+FullBath: Salle de bains hors-sol
+
+HalfBath: Salle d'eau hors-sol
+
+Bedroom: Chambres hors-sol (n'inclut pas les chambres au sous-sol)
+
+Kitchen: Cuisines hors-sol
+
+KitchenQual: Qualité de la cuisine
+
+       Ex	Excellent
+       Gd	Bon
+       TA	Typique/Normal
+       Fa	Satisfaisant
+       Po	Pauvre
+       	
+TotRmsAbvGrd: Pièces totales hors-sol (n'inclut pas les salles de bains)
+
+Functional: Caractère fonctionnel de la maison (supposer typique)
+
+       Typ	Typique
+       Min1	Déductions mineures 1
+       Min2	Déductions mineures 2
+       Mod	Déductions modérées
+       Maj1	Déductions majeures 1
+       Maj2	Déductions majeures 2
+       Sev	Très endommagée
+       Sal	Ruines uniquement
+		
+Fireplaces: Nombre de cheminées
+
+FireplaceQu: Qualité des cheminées
+
+       Ex	Excellent - Maçonnerie Exceptionnelle
+       Gd	Bon - Maçonnerie au rez-de-chaussée
+       TA	Normal - Cheminée en préfabriqué au rdc ou au sous-sol
+       Fa	Satisfaisant - Cheminée en préfabriqué au sous-sol
+       Po	Pauvre - Cheminée Benjamin Franklin
+       NA	Pas de cheminée
+		
+GarageType: Emplacement du garage
+		
+       2Types	Plus d'un type de garage
+       Attchd	Garage Mitoyen
+       Basment	Garage en sous-sol
+       BuiltIn	Garage inclut à la maison
+       CarPort	Abri voiture
+       Detchd	Detaché
+       NA	Pas de garage
+		
+GarageYrBlt: Année de construction du garage
+		
+GarageFinish: Finition intérieure du garage
+
+       Fin	Finit
+       RFn	Finitions brutes
+       Unf	Non Finit
+       NA	Pas de garage
+		
+GarageCars: Taille du garage (en voitures)
+
+GarageArea: Taille du garage (en pieds carrés)
+
+GarageQual: Qualité du garage
+
+       Ex	Excellent
+       Gd	Bon
+       TA	Typique/Normal
+       Fa	Satisfaisant
+       Po	Pauvre
+       NA	Pas de Garage
+		
+GarageCond: Etat du garage
+
+       Ex	Excellent
+       Gd	Bon
+       TA	Typique/Normal
+       Fa	Satisfaisant
+       Po	Pauvre
+       NA	Pas de Garage
+		
+PavedDrive: Allée privée pavée
+
+       Y	Pavé 
+       P	Partiellement Pavé
+       N	Terre/Graviers
+		
+WoodDeckSF: Aire de terrasse en bois (pieds carrés)
+
+OpenPorchSF: Aire de porche ouvert
+
+EnclosedPorch: Aire de porche abrité
+
+3SsnPorch: Aire de porche tout temps 
+
+ScreenPorch: Aire de véranda
+
+PoolArea: Aire de la piscine
+
+PoolQC: Etat de la piscine
+		
+       Ex	Excellent
+       Gd	Bon
+       TA	Normal/Typique
+       Fa	Satisfaisant
+       NA	Pas de piscine
+		
+Fence: Etat de la clôture
+		
+       GdPrv	Bonne intimité
+       MnPrv	Intimité Minimum
+       GdWo	Bois haut
+       MnWw	Bois/Câble (minimum)
+       NA	Pas de clôture
+	
+MiscFeature: Autres caractéristiques non couvertes ici
+		
+       Elev	Ascenseur
+       Gar2	Deuxième garage
+       Othr	Autre
+       Shed	Abri (plus de 100 pieds carrés)
+       TenC	Court de Tennis
+       NA	Aucun
+		
+MiscVal: $Valeur de la caractéristique non couverte
+
+MoSold: Mois de la vente (MM)
+
+YrSold: Année de la vente (YYYY)
+
+SaleType: Type de vente
+		
+       WD 	Warranty Deed - Conventional
+       CWD	Warranty Deed - Cash
+       VWD	Warranty Deed - VA Loan
+       New	Home just constructed and sold
+       COD	Court Officer Deed/Estate
+       Con	Contract 15% Down payment regular terms
+       ConLw	Contract Low Down payment and low interest
+       ConLI	Contract Low Interest
+       ConLD	Contract Low Down
+       Oth	Other
+		
+SaleCondition: Condition de la vente
+
+       Normal	Normal Sale
+       Abnorml	Abnormal Sale -  trade, foreclosure, short sale
+       AdjLand	Adjoining Land Purchase
+       Alloca	Allocation - two linked properties with separate deeds, Typiquely condo with a garage unit	
+       Family	Sale between family members
+       Partial	Home was not completed when last assessed (associated with New Homes)

@@ -1,0 +1,1168 @@
+---
+title: "Prix des logements de la ville d'Ames (USA)"
+author: "Yohann Bourhis & Emmanuel Daveau"
+date: "01/03/2020"
+output:
+  html_document:
+    theme: readable
+    toc: yes
+    toc_depth: 2
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# 1. Présentation du projet
+
+&nbsp;&nbsp;&nbsp;&nbsp;Ce projet est issu de la compétition Kaggle disponible [à cette adresse](https://www.kaggle.com/c/house-prices-advanced-regression-techniques). Le but de ce projet est d'essayer de prédire au mieux les tarifs des logements de la ville d'Ames (Iowa, USA) à partir d'un ensemble de 79 facteurs. Une description exhaustive de ces variables peut être trouvée avec le fichier joint à ce projet R : *data_description.txt*. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;Ce document se divise en deux parties principales : L'exploration et la préparation des données, puis la création de plusieurs modèles visant à essayer de prédire au mieux ces prix. Pour cela, plusieurs méthodes seront vues, allant de la régression à la création d'un modèle de Machine Learning. Pour des questions de lisibilité, le code R de préparation sera caché du rendu de ce document mais peut-être accessible via le fichier .Rmd associé au projet.
+
+# 2. Exploration et Préparation des données
+
+## 2.1 Chargement des librairies et du jeu de données 
+<a href="#top" style="color:black;font-size:14px;"><sup>▲</sup></a>
+
+Il est possible d'explorer les données dans le tableau ci-dessous. Par défaut, seules les 10 premières lignes sont affichées, mais il est possible de modifier ce comportement, de filter les données, les ordonner, etc...
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+
+library(tidyr)
+library(data.table)
+library(fastDummies)
+library(dplyr)
+library(FactoMineR)
+library(plotly)
+library(forcats)
+library(psych)
+library(corrr)
+library(corrplot)
+library(factoextra)
+library(DT)
+library(lmtest)
+
+# Le jeu de données de départ est déjà scindé en jeu d'entraînement et de test
+df_train <- fread('data/train.csv')
+df_test <- fread('data/test.csv')
+
+datatable(df_train, options = list(scrollX='100%')) %>%
+      formatStyle(columns=colnames(df_train),
+                  backgroundColor = '#0f0804', color = "#d8d8d8")
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;Comme nous pouvons le voir, nous faisons face à un premier problème : Des valeurs du jeu de données initiales étaient écrites sous la forme *"NA"*, ce qui indique une valeur manquante dans R. Toutefois, en regardant la description des variables, ces valeurs indiquent toujours une valeur équivalent à *"Autres"*. C'est pourquoi nous traiterons les valeurs *"NA"* de la manière suivante :
+
+* **Variables qualitatives** : Les valeurs *"NA"* seront remplacées par des chaînes de caractère significatives
+
+* **Variables quantitatives** : Les valeurs manquantes seront remplacées par la valeur médiane du jeu de données
+
+De plus, certaines variables sont considérées comme quantitatives lorsqu'elles sont en réalité qualitatives ordonnées. Nous en profiterons aussi pour modifier ce comportement en amont.
+
+```{r}
+
+data_preprocessing <- function(df) {
+
+# 1) Remplacement des valeurs NA par leur signification dans le lexique des données
+df <- df %>% 
+  mutate(Alley = ifelse(is.na(Alley) == TRUE, 'No_alley', Alley)) %>% 
+  mutate(MiscFeature = ifelse(is.na(MiscFeature) == TRUE, 'No_information', MiscFeature)) %>% 
+  mutate(BsmtQual = ifelse(is.na(BsmtQual) == TRUE, 'No_information', BsmtQual)) %>% 
+  mutate(BsmtCond = ifelse(is.na(BsmtCond) == TRUE, 'No_information', BsmtCond)) %>% 
+  mutate(BsmtExposure = ifelse(is.na(BsmtExposure) == TRUE, 'No_information', BsmtExposure)) %>% 
+  mutate(BsmtFinType1 = ifelse(is.na(BsmtFinType1) == TRUE, 'No_Basement', BsmtFinType1)) %>% 
+  mutate(BsmtFinType2 = ifelse(is.na(BsmtFinType2) == TRUE, 'No_Basement', BsmtFinType2)) %>% 
+  mutate(FireplaceQu = ifelse(is.na(FireplaceQu) == TRUE, 'No_Fireplace', FireplaceQu)) %>% 
+  mutate(GarageType = ifelse(is.na(GarageType) == TRUE, 'No_Garage', GarageType)) %>% 
+  mutate(GarageFinish = ifelse(is.na(GarageFinish) == TRUE, 'No_Garage', GarageFinish)) %>% 
+  mutate(GarageQual = ifelse(is.na(GarageQual) == TRUE, 'No_Garage', GarageQual)) %>% 
+  mutate(GarageCond = ifelse(is.na(GarageCond) == TRUE, 'No_Garage', GarageCond)) %>% 
+  mutate(PoolQC = ifelse(is.na(PoolQC) == TRUE, 'No_Pool', PoolQC)) %>% 
+  mutate(Fence = ifelse(is.na(Fence) == TRUE, 'No_Fence', Fence)) %>% 
+  mutate(Fence = ifelse(is.na(Fence) == TRUE, 'No_Fence', Fence)) %>% 
+  mutate(MasVnrType = ifelse(is.na(MasVnrType) == TRUE, 'No_information', MasVnrType)) %>% 
+  mutate(GarageYrBlt = ifelse(is.na(GarageYrBlt) == TRUE, YearBuilt, GarageYrBlt)) %>% 
+  mutate(Electrical = ifelse(is.na(Electrical) == TRUE, 'No_information', Electrical)) %>% 
+  mutate(MSZoning = ifelse(is.na(MSZoning) == TRUE, 'No_information', MSZoning)) %>% 
+  mutate(Utilities = ifelse(is.na(Utilities) == TRUE, 'No_information', Utilities)) %>% 
+  mutate(Functional	 = ifelse(is.na(Functional) == TRUE, 'No_information', Functional)) %>% 
+  mutate(Exterior1st = ifelse(is.na(Exterior1st) == TRUE, 'No_information', Exterior1st)) %>%
+  mutate(Exterior2nd = ifelse(is.na(Exterior2nd) == TRUE, 'No_information', Exterior2nd)) %>%
+  mutate(KitchenQual = ifelse(is.na(KitchenQual) == TRUE, 'No_information', KitchenQual)) %>%
+  mutate(SaleType = ifelse(is.na(SaleType) == TRUE, 'No_information', SaleType)) %>%
+  
+  
+# 2) Changement de type pour les valeurs catégorielles chargées en numérique
+  mutate(MoSold =  as.character(MoSold))%>% 
+  mutate(MSSubClass =  as.character(MSSubClass)) %>% 
+  mutate(Fireplaces =  as.character(Fireplaces)) %>%
+  
+# 3) Dans le cas des variables quantitatives non renseignées, 
+# nous faisons le choix de remlacer leur valeur par la médiane
+  mutate(LotFrontage = ifelse(is.na(LotFrontage) == TRUE, median(LotFrontage, na.rm = T), LotFrontage)) %>% 
+  mutate(MasVnrArea = ifelse(is.na(MasVnrArea) == TRUE, median(MasVnrArea, na.rm = T), MasVnrArea)) %>% 
+  mutate(BsmtFullBath = ifelse(is.na(BsmtFullBath) == TRUE, median(BsmtFullBath, na.rm = T), BsmtFullBath)) %>% 
+  mutate(BsmtHalfBath = ifelse(is.na(BsmtHalfBath) == TRUE, median(BsmtHalfBath, na.rm = T), BsmtHalfBath)) %>% 
+  mutate(BsmtFinSF1	 = ifelse(is.na(BsmtFinSF1) == TRUE, median(BsmtFinSF1, na.rm = T), BsmtFinSF1)) %>%
+  mutate(BsmtFinSF2	 = ifelse(is.na(BsmtFinSF2) == TRUE, median(BsmtFinSF2, na.rm = T), BsmtFinSF2)) %>%
+  mutate(BsmtUnfSF	= ifelse(is.na(BsmtUnfSF) == TRUE, median(BsmtUnfSF, na.rm = T), BsmtUnfSF)) %>%
+  mutate(TotalBsmtSF	= ifelse(is.na(TotalBsmtSF) == TRUE, median(TotalBsmtSF, na.rm = T), TotalBsmtSF)) %>%
+  mutate(GarageCars	= ifelse(is.na(GarageCars) == TRUE, median(GarageCars, na.rm = T), GarageCars)) %>%
+  mutate(GarageArea	= ifelse(is.na(GarageArea) == TRUE, median(GarageArea, na.rm = T), GarageArea))
+  	
+}
+
+##################### Application de la fonction de prépararation des données aux dataframes #################
+
+# Création d'une fonction de contrôle du pré-traitement pour vérifier si plus aucune variable de contient de NA dans une dataframe
+na_count <- function(df) {
+  
+  na_count <- sapply(df, function(y) sum(length(which(is.na(y)))))
+  na_count <- data.frame(na_count)
+}
+
+df_train_na_count <- na_count(df_train)
+df_test_na_count <- na_count(df_test)
+
+cat(" Nombre de données NA dans le jeu de données d'entraînement avant preprocessing : ", max(df_train_na_count$na_count), "\n",
+       "Nombre de données NA dans le jeu de données test avant preprocessing : ", max(df_test_na_count$na_count), collapse = "\n")
+
+df_train_clean <- data_preprocessing(df_train)
+df_test_clean <- data_preprocessing(df_test)
+
+
+df_train_na_count <- na_count(df_train_clean)
+df_test_na_count <- na_count(df_test_clean)
+
+cat(" Nombre de données NA dans le jeu de données d'entraînement après preprocessing : ", max(df_train_na_count$na_count), "\n",
+       "Nombre de données NA dans le jeu de données test après preprocessing : ", max(df_test_na_count$na_count), collapse = "\n")
+
+fwrite(df_train_clean, 'data/df_train_clean.csv')
+fwrite(df_test_clean, 'data/df_test_clean.csv')
+
+rm(df_train_na_count, df_test_na_count)
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;Nous avons maintenant rendu nos valeurs *NA* significatives. Il est temps d'explorer visuellement notre jeu de données afin de voir à quoi ressemblent ces dernières. Toutefois, notre jeu de données comportant `r ncol(df_train_clean)` colonnes, nous choisirons pour des questions de lisibilité et de praticité de présenter dans un premier temps les données numériques, puis les données catégorielles.
+
+## 2.2 Datavisualisation des données numériques
+<a href="#top" style="color:black;font-size:14px;"><sup>▲</sup></a>
+
+Observons dans un premier temps la répartition des individus autour des indicateurs de tendance centrale des variables numériques.
+
+```{r, fig.align = "center"}
+
+# Sélection des variables numériques
+select_numeric_colums <- function(df) {
+  tmp_num <- select_if(df, is.numeric) %>%
+  select(-Id)}
+
+# Application de la sélection aux dataframe train et test
+
+tmp_num <- select_numeric_colums(df_train_clean)
+tmp_num_test <- select_numeric_colums(df_test_clean)
+
+# Statistiques descriptives sur les variables numériques de l'étude
+description <- as.data.frame(t(describe(tmp_num, na.rm = TRUE) %>%
+                                 select(mean, median, min, max, range)))
+
+datatable(description, options = list(scrollX='100%')) %>%
+      formatStyle(columns=colnames(description),
+                  backgroundColor = '#0f0804', color = "#d8d8d8")
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;Plusieurs informations peuvent être dérivées des données ci-dessus. Tout d'abord, les différences entre la valeur médiane et la valeur moyenne de chaque variable numérique semblent assez proche, ce qui permet d'indiquer qu'il y a dans l'ensemble assez peu de valeurs extrêmes pouvant potentiellement influer dessus.
+
+&nbsp;&nbsp;&nbsp;&nbsp;Le boxplot suivant nous permet de confirmer cette intuition, sauf en ce qui concerne la variable *"LotArea"*, pour laquelle quelques valeurs extrêmes se situent très loin des valeurs médianes (près de 20 fois supérieures à cette valeur). Nous avons toutefois décidé de conserver ces valeurs car des propriétés de taille exceptionnelle existent et peuvent aussi décider des tarifs des propriétés alentours.
+
+```{r fig.align = "center"}
+
+# Visualisation de la répartition des données numériques
+num_plot <- ggplot(stack(tmp_num[, -which(names(tmp_num) %in% c("Id","SalePrice"))]),
+                   aes(x = ind, y = values)) 
+num_plot +
+  geom_boxplot() +
+  coord_flip() +
+  xlab("") +
+  ylab("Valeurs associées aux variables") +
+  ggtitle("Boxplot de répartition des variables numériques") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;Le but de cette étude étant d'observer l'impact des différentes données sur le prix de vente (*variable "SalePrice"*), nous pouvons maintenant nous intéresser d'une part aux relations entre les variables, et d'autre part aux relations entre chaque variable et la variable *"SalePrice"*.
+
+```{r, message=FALSE, fig.align = "center"}
+
+# Répartition de la variable SalePrice
+nolog_plot <- ggplot(data = tmp_num, aes(x = SalePrice)) +
+  geom_histogram(aes(y = ..density..), color = "black", fill = "white") +
+  geom_density(color = "#a10a0a", size = 1) +
+  scale_x_continuous(labels = scales::comma) +
+  ylab("Compte") +
+  xlab("Prix de vente") +
+  ggtitle("Répartition des prix de vente") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+tmp_num$log_sp <- log1p(tmp_num$SalePrice)
+
+log_plot <- ggplot(data = tmp_num, aes(x = log_sp)) +
+  geom_histogram(aes(y = ..density..), color = "black", fill = "white") +
+  geom_density(color = "#a10a0a", size = 1) +
+  ylab("Compte") +
+  xlab("Prix de vente") +
+  ggtitle("Répartition des prix de vente (transformation log(1+x)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+gridExtra::grid.arrange(nolog_plot, log_plot)
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;Comme nous pouvons le voir sur le graphique ci-dessus, on constate un effet plancher sur les prix les plus bas, avec très peu de maisons disponibles à partir du tarif minimum de `r min(tmp_num$SalePrice)`$. 
+Toutefois, la plupart des maisons se situent sur une fourchette de prix légèrement supérieure, en moyenne de `r mean(tmp_num$SalePrice)`$, mais un effet de traîne existe ensuite et plusieurs maisons assez chères existent dans la région. Une transformation en log(1+x) a permis de normaliser facilement nos données, bien que l'application de cette transformation n'ai pas changé la valeur de nos modèles. C'est pourquoi les chiffres présentés plus tard utilisent l'échellent normale des prix de vente pour des questions de simplicité de lecture.
+
+&nbsp;&nbsp;&nbsp;&nbsp;Ensuite, le graphique de corrélation présenté ci-dessous nous indique que plusieurs variables numériques ne semblent pas corrélées avec le prix de vente, et sont donc des arguments de vente qui ne devraient pas être pris en compte dans l'explication du prix d'un logement (surface de la Piscine, véranda, nombre de chambres hors-sol...). A l'inverse, les facteurs les plus déterminants dans le tarif d'une propriété sont (entre autres) la qualité générale, la surface habitable hors-sol, la surface du sous-sol et la taille du garage.
+
+```{r message = FALSE, warning = FALSE, fig.align = "center"}
+
+tmp_num$log_sp <- NULL
+
+# Corrélation entre les variables explicatives et la variable à expliquer (SalePrice)
+cor_tmp_num <- tmp_num %>% 
+  correlate() %>% 
+  focus(SalePrice)
+
+
+cor_tmp_nump_plot <- cor_tmp_num %>% 
+  mutate(rowname = factor(rowname, levels = rowname[order(SalePrice)])) %>%
+  ggplot(aes(x = rowname, y = SalePrice, fill = SalePrice, 
+             text = paste("Variable :", rowname, "<br>", 
+                          "Coefficient de corrélation :", round(SalePrice, 2)))) +
+  geom_bar(stat = "identity") +
+  ylab("Coefficient de corrélation") +
+  xlab("") + 
+  ggtitle("Corrélation entre les variables numériques\net le prix de vente.") +
+  coord_flip() +
+  scale_fill_viridis_c() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplotly(cor_tmp_nump_plot, tooltip = "text")
+
+```
+
+
+Le graphique suivant nous montre les variables qui ne sont pas corrélées avec le prix de vente et qui pourront dont être enlevées de l'analyse, en plus des corrélations entre les variables.
+
+```{r, fig.height = 8, fig.width = 12, fig.align = "center"}
+
+corPlot(tmp_num, stars = TRUE)
+
+# Création d'un objet enlevant les variables identifiées ci-dessus
+num_to_remove <- c("BsmtFinSF2", "LowQualFinSF", "BsmtHalfBath", "YrSold", "MiscVal", "3SsnPorch")
+
+# Supression des colonnes
+
+select_numeric_colums <- function(df) {
+  tmp_num_col_dropped <- df[, !(names(df) %in% num_to_remove)]}
+
+# Application de la fonction de suppression aux deux dataframes
+
+tmp_num_col_dropped <- select_numeric_colums(tmp_num)
+tmp_num_col_dropped_test <- select_numeric_colums(tmp_num_test)
+
+```
+
+
+## 2.3 Datavisualisation des données catégorielles
+<a href="#top" style="color:black;font-size:14px;"><sup>▲</sup></a>
+
+
+```{r echo=FALSE, message=FALSE, warning = FALSE, fig.align = "center"}
+
+# Sélection des données catégorielles
+tmp_cat <- select_if(df_train_clean, is.character)
+
+# Conversion du type "char" en type "factor"
+tmp_cat <- as.data.frame(lapply(tmp_cat, as.factor))
+
+# Visualisation de la répartition des données catégorielles
+cat_plot_data <- tmp_cat %>%
+  gather(name,value) %>%
+  count(name, value)
+
+cat_plot <- ggplot(cat_plot_data, 
+                   aes(x = fct_rev(name), y = n, group = value, fill = value, 
+                       text = paste("Variable :", name, "<br>", 
+                                    "Modalité :", value, "<br>", 
+                                    "Nombre d'individus :", n))) +
+  geom_bar(position = "stack", stat = "identity") +
+  guides(fill=FALSE) +
+  coord_flip() +
+  scale_fill_viridis_d() +
+  xlab("") +
+  ylab("Répartition (en observations)") +
+  ggtitle("Répartition des individus en fonction\nde chaque variable catégorielle") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5))
+
+ggplotly(cat_plot, tooltip = "text")
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;Comme on peut le voir ci-dessus, certaines variables auront peu d'intérêt dans un algorithme, car elles se retrouvent écrasées par le poids du nombre d'individus dans la ou les autres catégories. Par exemple, la variables *Utilities*, qui représente les services disponibles dans une maison (eau, gaz, électricité) se décompose en une maison ne possédant aucun de ces services, contre 1459 disposant des 3. Cette variable pourra donc être ignorée des futures analyses. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;Un autre problème concerne les modalités qui sont trop peu nombreuses pour pouvoir montrer un réel effet, mais qui pourraient être agglomérées avec d'autres pour être suffisamment importantes. Une règle simple pour savoir combien d'observations un groupe devrait comporter au minimum est proposée par Green (1991) : *Le minimum d'observations requises pour dériver un terme d'erreur du modèle est de prendre k+2, où k est le nombre de prédicteurs*. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;Cette règle n'est pas absolue, mais permet simplement de calculer le nombre minimum d'observations que nous devrions avoir dans chaque catégorie pour obtenir un terme d'erreur ayant du sens, ici 80 si l'on ne prend pas en compte l'identifiant de l'observation, le prix de vente (notre variable dépendante), et les variable mentionnées plus haut (*Utilities*, *Condition2*, *Heating* et *Street*). De par leur nombre de modalités et leur répartition, les variables *Neighborhood*, *MoSold* et *MSSubClass* seront préservées telles quelles. Voici la répartition de ces variables une fois les variables catégorielles nettoyées :
+
+```{r echo=FALSE, message=FALSE, warning = FALSE, fig.align = "center"}
+regroupement_variables <- function(df) {
+df_var_clean <- df %>%
+  mutate(Alley = ifelse(grepl("Grvl|Pave", Alley), "Alley", Alley)) %>%
+  mutate(BldgType = ifelse(grepl("1Fam|TwnhsE", BldgType), "Detached", "Semi-detached")) %>%
+  mutate(BsmtCond = ifelse(grepl("Ex|Gd|TA", BsmtCond), "Good", "Mediocre")) %>%
+  mutate(BsmtFinType2 = ifelse(grepl("GLQ|ALQ|Rec", BsmtFinType2), "Good", "Mediocre")) %>%
+  mutate(BsmtQual = ifelse(grepl("Ex|Gd|TA", BsmtQual), "Good", "Mediocre")) %>%
+  mutate(Condition1 = ifelse(grepl("Norm|PosA|PosN", Condition1), "Calm", "Near_Road_or_Train")) %>%
+  mutate(Condition2 = ifelse(grepl("Norm|PosA|PosN", Condition2), "Calm", "Near_Road_or_Train")) %>%
+  mutate(Electrical = ifelse(grepl("SBrkr", Electrical), "Standard", "Non-standard")) %>%
+  mutate(Exterior1st = ifelse(grepl("WdShing|Sdng|PreCast|Plywood|Hard Board", Exterior1st), "Wood", "Mineral")) %>%
+  mutate(Exterior2nd = ifelse(grepl("WdShing|Sdng|PreCast|Plywood|Hard Board", Exterior2nd), "Wood", "Mineral")) %>%
+  mutate(ExterCond = ifelse(grepl("Ex|Gd|TA", ExterCond), "Good", "Mediocre")) %>%
+  mutate(ExterQual = ifelse(grepl("Ex|Gd", ExterQual), "Very_Good", "Normal_or_Mediocre")) %>%
+  mutate(Fence = ifelse(grepl("GdPrv|GdWo", Fence), "Privacy", "Minimum_Privacy")) %>%
+  mutate(FireplaceQu = ifelse(grepl("Ex|Gd", FireplaceQu), "Very_Good", 
+                              ifelse(grepl("TA|Fa|Po", FireplaceQu), "Normal_or_Mediocre", "No_Fireplace"))) %>%
+  mutate(Fireplaces = ifelse(grepl("0", Fireplaces), "No_fireplace", "1_or_more_Fireplaces")) %>%
+  mutate(Foundation = ifelse(grepl("PConc", Foundation), "Concrete", 
+                              ifelse(grepl("CBlock", Foundation), "Cinder_block", "Other"))) %>%
+  mutate(Functional = ifelse(grepl("Typ", Functional), "Normal", "Deductions")) %>%
+  mutate(GarageCond = ifelse(grepl("Ex|Gd|TA", GarageCond), "Good", "Normal_or_Mediocre")) %>%
+  mutate(GarageQual = ifelse(grepl("Ex|Gd|TA", GarageQual), "Good", "Normal_or_Mediocre")) %>%
+  mutate(GarageType = ifelse(grepl("Basment|2Types|BuiltIn|CarPort", GarageType), "Good", GarageType)) %>%
+  mutate(Heating = ifelse(grepl("GasA", Heating), "GasA", "Other")) %>%
+  mutate(HeatingQC = ifelse(grepl("Ex|Gd", HeatingQC), "Very_Good", "Normal_or_Mediocre")) %>%
+  mutate(HouseStyle = ifelse(grepl("1.5Fin|1.5Unf|2.5Unf|SFoyer|SLvl", HouseStyle), "Other", GarageType)) %>%
+  mutate(KitchenQual = ifelse(grepl("Ex|Gd", KitchenQual), "Very_Good", "Normal_or_Mediocre")) %>%
+  mutate(LandContour = ifelse(grepl("Lvl", LandContour), "Level", "Slope")) %>%
+  mutate(LandSlope = ifelse(grepl("Gtl", LandSlope), "Gentle", "Moderate_to_Severe")) %>%
+  mutate(LotConfig = ifelse(grepl("Corner|FR2|FR3", LotConfig), "Proximity_with_Others", LotConfig)) %>%
+  mutate(LotShape = ifelse(grepl("Reg", LotShape), "Regular", "Irregular")) %>%
+  mutate(MasVnrType = ifelse(grepl("None", MasVnrType), "No_Masonry", "Masonry")) %>%
+  mutate(MiscFeature = ifelse(grepl("No_information", MiscFeature), "No_information", "Special_Feature")) %>%
+  mutate(MSZoning = ifelse(grepl("RL|RM|RP", MSZoning), "Residential", "Non_Residential")) %>%
+  mutate(PavedDrive = ifelse(grepl("Y", PavedDrive), "Paved", "Gravel")) %>%
+  mutate(PoolQC = ifelse(grepl("No_Pool", PoolQC), "No_Pool", "Pool")) %>%
+  mutate(RoofMatl = ifelse(grepl("CompShg", RoofMatl), "Composite", "Other")) %>%
+  mutate(RoofStyle = ifelse(grepl("Flat|Gambrel|Mansard|Shed", RoofStyle), "Other", RoofStyle)) %>%
+  mutate(SaleCondition = ifelse(grepl("AdjLand|Alloca|Family|Abnorml", SaleCondition), "Other", SaleCondition)) %>%
+  mutate(SaleType = ifelse(grepl("WD", SaleType), "Conventional", "Other"))
+  }
+
+# Application du regroupement de variable aux deux dataframes
+
+df_train_var_clean <- regroupement_variables(df_train_clean)
+df_test_var_clean <- regroupement_variables(df_test_clean)
+
+# Preprocessing de la dataframe de variables catégorielles
+
+preprocessing_cat <- function(df) {
+  # Sélection des données catégorielles
+  tmp_cat <- select_if(df, is.character)
+  # Conversion du type "char" en type "factor"
+  tmp_cat <- as.data.frame(lapply(tmp_cat, as.factor)) %>%
+  select(-c(Street, Utilities, Condition2, Heating))
+  }
+
+# Sélection des données catégorielles
+tmp_cat <- preprocessing_cat(df_train_var_clean)
+tmp_cat_test <- preprocessing_cat(df_test_var_clean)
+
+# Visualisation de la répartition des données catégorielles
+cat_plot_data <- tmp_cat %>%
+  gather(name,value) %>%
+  count(name, value)
+
+cat_plot <- ggplot(cat_plot_data, 
+                   aes(x = fct_rev(name), y = n, group = value, fill = value, 
+                       text = paste("Variable :", name, "<br>", 
+                                    "Modalité :", value, "<br>", 
+                                    "Nombre d'individus :", n))) +
+  geom_bar(position = "stack", stat = "identity") +
+  guides(fill=FALSE) +
+  coord_flip() +
+  scale_fill_viridis_d() +
+  xlab("") +
+  ylab("Répartition (en observations)") +
+  ggtitle("Répartition des individus en fonction\nde chaque variable catégorielle") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5))
+
+ggplotly(cat_plot, tooltip = "text")
+
+rm(cat_plot, cat_plot_data)
+
+```
+
+<a href="#top" style="color:black;font-size:14px;"><sup>▲</sup></a>
+
+# 3. Prédire le prix en fonction des variables 
+
+## 3.1 Première analyse : Régression par ANCOVA en méthode stepwise backward/forward
+
+Nous nous retrouvons ainsi avec deux jeux de données distincts :
+
+* *tmp_num_col_dropped* : Comprend les variables numériques. Pour notre première analyse, plutôt que de tester la normalité de chaque modalité, ce qui rendrait l'analyse trop complexe, nous les transformerons en variables centrées réduites. Les variables qui n'étaient pas corrélées avec le prix de vente ont été enlevées.
+
+* *tmp_cat* : Comprend les variables catégorielles après mise en commun des modalités trop spécifiques et suppression des modalités non pertinentes pour notre analyse.
+
+&nbsp;&nbsp;&nbsp;&nbsp;Notre première analyse essaiera d'inclure le plus de variables possibles. C'est pourquoi nous avons fait le choix d'utiliser l'ANCOVA avec la méthode stepwise backward/forward, permettant de sélectionner les variables optimisant le mieux l'erreur de notre modèle.
+
+### 3.1.1 Création et analyse du modèle
+
+```{r}
+
+# Supression de la variable de prix dans la dataframe d'entrainement avant la normalisation
+tmp_num_before_norm <- tmp_num_col_dropped %>% select(-SalePrice)
+
+# Normalisation des variables numériques
+tmp_num_norm <- as.data.frame(scale(tmp_num_before_norm, center = TRUE, scale = TRUE))
+tmp_num_norm_test <- as.data.frame(scale(tmp_num_col_dropped_test, center = TRUE, scale = TRUE))
+
+# Rajout de la variable prix dans les données d'entrainement après normalisation
+tmp_num_norm <- cbind(tmp_num_norm, SalePrice = tmp_num$SalePrice)
+
+# Création d'une dataframe de référence contenant tout le data preprocessing réalisé plus haut
+df_stepwise <- cbind(tmp_cat, tmp_num_norm)
+df_stepwise_test <- cbind(tmp_cat_test, tmp_num_norm_test)
+
+# Création du modèle saturé
+model_sature_stepwise <- lm(SalePrice ~ ., data = df_stepwise)
+
+# Récupération du nombre d'observations pour la méthode stepwise
+n <- dim(df_stepwise)[1]
+
+# Exécution du modèle saturé en stepwise
+step_model <- step(model_sature_stepwise, direction = c("both"), k = log(n), trace = 0)
+
+# Récupération de la formule
+step_model_formula <- formula(step_model)
+
+summary_step_model <- summary.lm(step_model)
+
+# summary_step_model$coefficients <- summary_step_model$coefficients[1:4,]
+
+print(summary_step_model)
+
+```
+```{r}
+# Analyse de la normalité des résidus
+plot(step_model,2)
+```
+
+En dehors des extrémités, les points semblent plutôt bien répartit sur la droite, ce qui pourrait nous permettre de valider l'hypothèse de normalité des résidus
+
+```{r}
+print(shapiro.test(residuals(step_model)))
+```
+
+Pour autant, le Shapiro test renvoie une p-value significative, ce qui infirme l'hypothèse de normalité de l'échantillon.
+
+```{r}
+# Vérification de l'homogénéité des résidus
+plot(step_model, 3)
+```
+
+La répartition de la racine carrée des résidus standardisés n'est de plus pas homogène, et la courbe de régression locale en rouge n'est pas droite. L'hypothèse d'homogénéité des résidus semble donc également rejetée au regard de cette première analyse visuelle .
+
+```{r}
+# test de Breush-Pagan
+bptest(step_model)
+```
+
+La p-value significative du test de Breush-Pagan confirme cette impression.
+
+```{r}
+# Evaluation à postériori de l'hypothèse de linéarité du modèle
+plot(step_model,1)
+```
+
+Concernant l'hypothèse de linéarité du modèle, le plot nous montre que lorsque les réponses prédites par le modèle (fitted values) augmentent, les résidus restent globalement uniformément distribués de part et d’autre de 0. Cela montre, qu’en moyenne, la droite de régression, est bien adaptée aux données, et donc que l’hypothèse de linéarité est acceptable. On remarquera tout de même des écarts plus importants à l'extrémité droite du modèle.
+
+En résumé nous pouvons valider l'hypothèse de linéarité du modèle, mais devons rejeter les hypthèses d'homogénéité et de normalité des résidus, ce qui disqualifie ce modèle quant à toute interprétation des résultats.
+
+```{r, include = FALSE}
+
+# Résumé des dataframes :
+
+# df_train = df d'origine
+# df_train_clean = df avec type et na corrigés
+# df_train_var_clean = df avec modalités de facteurs corrigées
+
+# tmp_num = df recensant les variables numériques
+# tmp_num = df recensant les variables numériques moins celles ne corrélant pas avec le prix de vente
+# tmp_num_norm = df recensant les variables numériques centrées réduites moins celles ne corrélant pas avec le prix de vente
+# tmp_cat = df recensant les variables catégorielles avec modalités de facteurs corrigées ET VARIABLES INUTILES SUPPRIMEES
+
+# df_stepwise = tmp_cat + tmp_num_norm
+
+```
+
+
+Nous notterons tout de même que ce premier modèle nous permet ainsi d'expliquer 86,27% de la variance totale du prix de vente d'une maison `[F(51, 1406) = 166.5, p < .001]`
+
+Toutefois, la complexité du modèle rend son interprétabilité quasiment impossible. La formule permettant d'expliquer le prix est en effet la suivante :
+
+`r cat(as.character(c(step_model_formula[[2]], step_model_formula[[1]], step_model_formula[[3]])))`
+
+Cette formule nous permet d'expliquer une grande partie de la variance de notre prix, et réduit ses dimensions à 24. Toutefois, il serait trop complexe d'essayer de déterminer un par un quelles modalités de chaque variables influent sur le prix, et de quelle manière. Ce qu'il serait intéressant serait de pouvoir expliquer un maximum de variance avec un minimum de prédicteurs (idéalement moins de 10 par souci d'explicabilité).
+
+C'est pourquoi, dans un second temps, nous tâcherons de créer un modèle expliquant le plus de variance tout en contenant le moins de prédicteurs possibles.
+
+
+
+### 3.1.2 Evaluation du résultat
+
+```{r}
+# Prédiction sur la dataframe de test obtenue pour soumission kaggle
+SalePrice <- predict(step_model, df_stepwise_test)
+
+# Création de la dataframe de soumission
+Id <- seq(1461, 2919, by=1)
+predict <- data.frame(cbind(Id, SalePrice))
+name_file <- 'predictions/full_modele.csv'
+
+# Ecriture du résultat
+fwrite(predict, name_file)
+```
+
+Ce premier modèle est évalué sur les données de test en étant soumit au concours Kaggle en cours. Le résultat est renvoyé sous la forme d'un score de racine carrée de l'erreur quadratique logarithmique moyenne (Root Mean Square Logarithmic Error ou RMSLE).
+
+Ce score est un dérivé d'une métrique plus connue qui est la racine carrée de l'erreur quadratique moyenne (Root Mean Square error ou RMSE), c'est à dire la racine carré de la moyenne des écarts entre la prédiction du modèle et la valeur à prédire.
+
+$$RMSE = \sqrt{\frac{1}{n}\Sigma_{i=1}^{n}{\Big(y_p - y\Big)^2}}$$
+
+Mais cette métrique pose problème lorsque les valeurs à prédire sont sur des échelles de grandeur différentes : un bien immobilier vendu 100 000 dollars et prédit avec un écart de  10 000 $ représente une erreur de prédiction de 10% alors qu'un bien de 1 000 000 de dollars prédit avec le même écart présente une erreur de prédiction de 1%. Faire la somme de ses écarts pour évaluer l'efficacité du modèle n'a alors plus aucun sens. Prendre les valeurs logarithmiques des valeurs permet de gommer ce problème : 
+
+$$RMSLE = \sqrt{\frac{1}{n}\Sigma_{i=1}^{n}{\Big(log(y_p + 1) - log(y+1)\Big)^2}}$$
+
+Le score RMSLE obtenu par ce modèle est de 0.63. Pour comparaison, les scores obtenus par les 4670 participants au concours vont de 0 à 15.63 mais 4450 participants ont un meilleur résultat, ce modèle est donc très perfectible.
+
+```{r}
+# Création de jeux de données d'entrainement/validation pour évaluer nous même l'écart de prédiction du modèle
+smp_siz = floor(0.75*nrow(df_stepwise)) 
+set.seed(123)
+train_ind = sample(seq_len(nrow(df_stepwise)),size = smp_siz)
+train =df_stepwise[train_ind,]
+test=df_stepwise[-train_ind,]
+
+# Création du modèle saturé
+model_sature_stepwise <- lm(SalePrice ~ ., data = train)
+
+# Récupération du nombre d'observations pour la méthode stepwise
+n <- dim(train)[1]
+
+# Exécution du modèle saturé en stepwise
+step_model <- step(model_sature_stepwise, direction = c("both"), k = log(n), trace = 0)
+
+#Prédiction du modèle sur le jeu de test
+
+SalePrice <- predict(step_model, test)
+
+# Calcul de l'écart de prix moyen
+ecart_prix<- test$SalePrice - SalePrice
+
+#Calcul de l'écrat de prix moyen pour ce premier modèle
+mean(abs(ecart_prix))
+
+```
+
+En se basant uniquement sur l'échantillon d'entrainement recoupé, nous obtenons pour ce premier modèle un écart de prix moyen de 20032€ entre nos prévisions et la valeur réelle des biens.
+
+<a href="#top" style="color:black;font-size:14px;"><sup>▲</sup></a>
+
+## 3.2 Deuxième analyse : Réduction de dimensionalité
+
+&nbsp;&nbsp;&nbsp;&nbsp;Il va ici falloir faire le choix des variables à retenir suivant si elles sont quantitatives ou qualitatives. La sélection des premières s'opérera en réalisant une ACP. La sélection des deuxième en réalisant une ANOVA en utilisant à nouveau la méthode stepwise.
+
+### 3.2.1 Réduction des dimensions numériques : l'ACP
+
+Pour l'ACP, nous n'aurons pas besoin d'enlever les variables ne corrélant pas avec notre variable dépendante, car ce sont les corrélations entre les variables explicatives qui sont ici prises en compte.
+
+```{r}
+
+# On enlève le prix de vente de la matrice, et on garde toutes les autres variables.
+tmp_num_no_price <- tmp_num %>% select(-SalePrice)
+
+# Création du modèle d'ACP qui va réduire nos dimensions sur les variables numériques
+
+df_ACP <- tmp_num %>%  
+  select(-SalePrice) %>% 
+  bind_rows(tmp_num_test)
+
+
+pca_model <- PCA(df_ACP, graph = FALSE, ncp = 12)
+
+eig_val <- pca_model$eig
+colnames(eig_val)[2] <- "explained_var"
+barplot(eig_val[, 2], 
+        names.arg = 1:nrow(eig_val), 
+        main = "Variances Explained by Dimensions (%)",
+        xlab = "Principal Dimensions",
+        ylab = "Percentage of variances",
+        col ="steelblue")
+
+```
+
+On peut voir sur le graphique ci-dessus que le "coude" visuel pour la sélection de dimensions se situe à 5. Ces 5 dimensions nous permettent d'expliquer `r as.data.frame(eig_val) %>% head(5) %>% select(explained_var) %>% sum()`% de la variance des données numériques, ce qui est assez peu. En sélectionnant toutefois 12 dimensions, on passe cette fois à `r as.data.frame(eig_val) %>% head(12) %>% select(explained_var) %>% sum()`% de variance, ce qui nous permet de perdre moins d'information. On peut ensuite caractériser nos 5 principales dimensions en étudiant le graphique ci-dessous :
+
+```{r, fig.height = 8, fig.width = 12}
+
+# Contribution des variables aux dimensions
+pca_model_short_contrib <- pca_model$var$contrib[, c(1:5)]
+corrplot(pca_model_short_contrib, is.corr=FALSE)
+
+```
+
+Ce graphique nous indique que nos axes peuvent être résumés comme suit :
+
+* Dimension 1 : **Etat Général de la maison**, elle correspond à l'ancienneté du bâtiment et à sa taille
+
+* Dimension 2 : **Dimensions du bâtiment**, elle correspond à la hauteur et au nombre de pièces
+
+* Dimension 3 : **Aspect extérieur du bâtiment**, elle correspond à la taille de la propriété et à la surface visuelle visible du bâtiment
+
+* Dimension 4 : **Qualité des fondations**
+
+* Dimension 5 : **Utilités**, elle correspond aux pièces d'utilité (salle de bain, cuisine)
+
+Cependant, une analyse des contributions individuelles (graphique suivant) nous montre que les individu n°1299 et 2550 ont une contribution trop importante dans la variance de deux dimensions (Dim.1 et Dim.3).L'observation 1299 sera supprimée, mais la deuxième sera gardée car elle appartient au jeux de test et nous en avons besoin pour soumettre le résultat au concours kaggle.
+
+```{r}
+
+# Contribution des individus aux dimensions
+contrib_ind<-pca_model$ind$contrib
+fviz_contrib(pca_model, choice = "ind", axes = 1:5, top = 50) +
+  ggtitle("Contributions des individus aux dimensions 1 à 5,\nles 50 plus importants sont ici sélectionnés") +
+  theme(plot.title = element_text(hjust = 0.5, size = 14))
+
+```
+```{r}
+# Création du modèle d'ACP qui va réduire nos dimensions sur les variables numériques
+
+df_ACP <- tmp_num %>%  
+  select(-SalePrice) %>% 
+  bind_rows(tmp_num_test)
+
+
+pca_model <- PCA(df_ACP[-1299,], graph = FALSE, ncp = 12)
+
+```
+
+### 3.2.2 Réduction des dimensions catégorielles : L'ANOVA Stepwise
+
+&nbsp;&nbsp;&nbsp;&nbsp;Le but ici est de répéter l'opération réalisée plus haut : Sélectionner parmi un nombre important de prédicteurs ceux ayant un impact sur le prix de vente d'une maison. Toutefois, plutôt que de le réaliser sur 79 variables, nous le ferons cette fois-ci uniquement sur les variables catégorielles. Ainsi, nous espérons obtenir le moins de prédicteurs possibles à l'arrivée, car nous réduisons par là le nombre de prédicteurs par deux.
+
+```{r}
+
+# Création de la dataframe tmp_cat incluant le prix de vente
+tmp_cat_step <- cbind(tmp_cat, SalePrice = df_train_clean$SalePrice)[-1299,]
+
+# Création du modèle saturé
+model_sature_step_cat <- lm(SalePrice ~ ., data = tmp_cat_step)
+
+# Récupération du nombre d'observations pour la méthode stepwise
+n <- dim(tmp_cat_step)[1]
+
+# Exécution du modèle saturé en stepwise
+step_cat <- step(model_sature_step_cat, direction = c("both"), k = log(n), trace = 0)
+
+# Récupération de la formule
+step_cat_formula <- formula(step_cat)
+
+summary_step_cat <- summary.lm(step_cat)
+
+summary_step_cat$coefficients <- summary_step_cat$coefficients[1:4,]
+
+print(summary_step_cat)
+
+```
+
+Nous avons ici réduit nos dimensions de 42 à 13, tout en expliquant 76.71% de la variance du prix de vente de la maison `[F(58, 1400 = 79.52, p<.001)]`
+
+&nbsp;&nbsp;&nbsp;&nbsp;On peut désormais concaténer nos 13 dimensions catégorielles avec nos 12 dimensions afin d'essayer de trouver un modèle expliquant au mieux le prix de vente d'une maison en utilisant. Nous utiliserons à nouveau l'ANCOVA en méthode stepwise pour trouver le modèle réduisant au mieux nos termes d'erreur ainsi que le nombre de prédicteurs. Notons que notre modèle saturé ne comporte maintenant plus 79 variables, mais 25.
+
+### 3.2.3 Création et analyse du modèle
+
+```{r}
+
+# Récupération des colonnes issues de l'ACP
+df_pca <- as.data.frame(pca_model$ind$coord)[1:1459,]
+df_pca_test <- as.data.frame(pca_model$ind$coord)[1460:2918,]
+
+# Concaténation de ces dernières avec les variables catégorielles retenues
+df_step_pca <- cbind(df_pca, tmp_cat_step %>% 
+                       select(MSSubClass, Neighborhood, RoofStyle, 
+                              RoofMatl, ExterQual, BsmtExposure, CentralAir, KitchenQual, 
+                              FireplaceQu, GarageFinish, GarageCond, PoolQC, SaleCondition, SalePrice))
+
+df_step_pca_test <- cbind(df_pca_test, tmp_cat_test )
+# Création du modèle saturé
+model_sature_step_reduced <- lm(SalePrice ~ ., data = df_step_pca)
+
+# Récupération du nombre d'observations pour la méthode stepwise
+n <- dim(df_step_pca)[1]
+
+# Exécution du modèle saturé en stepwise
+step_red <- step(model_sature_step_reduced, direction = c("both"), k = log(n), trace = 0)
+
+# Récupération de la formule
+step_cat_formula <- formula(step_red)
+
+summary_step_red <- summary.lm(step_red)
+
+# summary_step_red$coefficients <- summary_step_red$coefficients[1:4,]
+
+print(summary_step_red)
+
+```
+```{r}
+# Analyse de la normalité des résidus
+plot(step_red,2)
+```
+
+En dehors des extrémités, les points semblent ici aussi plutôt bien répartit sur la droite, ce qui pourrait nous permettre de valider l'hypothèse de normalité des résidus.
+
+```{r}
+print(shapiro.test(residuals(step_red)))
+```
+Pour autant, le Shapiro test renvoie une p-value significative, ce qui infirme toujours l'hypothèse de normalité des résidus.
+
+```{r}
+# Vérification de l'homogénéité des résidus
+plot(step_red, 3)
+```
+La répartition de la racine carrée des résidus standardisés n'est de plus toujours pas homogène, et la courbe de régression locale en rouge n'est pas droite. L'hypothèse d'homogénéité des résidus semble donc également rejetée au regard de cette première analyse visuelle .
+```{r}
+# test de Breush-Pagan
+bptest(step_red)
+```
+La p-value significative du test de Breush-Pagan confirme cette impression.
+
+```{r}
+# Evaluation à postériori de l'hypothèse de linéarité du modèle
+plot(step_red,1)
+```
+Concernant l'hypothèse de linéarité du modèle, le plot nous montre que lorsque les réponses prédites par le modèle (fitted values) augmentent, les résidus restent globalement uniformément distribués de part et d’autre de 0. Cela montre, qu’en moyenne, la droite de régression, est bien adaptée aux données, et donc que l’hypothèse de linéarité est acceptable. On remarquera tout de même des écarts plus importants à l'extrémité droite du modèle.
+
+En résumé, comme pour le premier modèle, nous pouvons valider l'hypothèse de linéarité du modèle, mais devons rejeter les hypthèses d'homogénéité et de normalité des résidus, ce qui disqualifie également, ce modèle quant à toute interprétation des résultats.
+
+En réduisant manuellement les dimensions, nous parvenons désormais à réduire notre modèle à 13 facteurs, tout en continuant d'expliquer 86.85 % de la variance du prix de vente d'une maison `[F(43, 1415) = 217.3, p<.001]`.
+
+&nbsp;&nbsp;&nbsp;&nbsp;Nous avons ainsi pu diviser par 2 le nombre de variables explicatives par rapport à notre méthode initiale, tout en augmentant de `r (0.8685 - 0.8627)*100`% de notre variance expliquée par le modèle. A 13 facteurs, notre modèle pourrait commencer à être exploitable. Nous essaierons toutefois une dernière méthode de réduction de la dimensionalité ci-dessous en utilisant une autre méthode, l'Analyse Factorielle Multiple, permettant d'exécuter les traitements effectués en ACP avec des données numériques et catégorielles.
+
+### 3.2.4 Evaluation du résultat
+
+```{r}
+
+# Prédiction sur la dataframe de test obtenue pour soumission kaggle
+
+SalePrice <- predict(step_red, df_step_pca_test)
+Id <- seq(1461, 2919, by=1)
+
+predict <- data.frame(cbind(Id, SalePrice))
+name_file <- 'predictions/pca_model.csv'
+
+fwrite(predict, name_file)
+
+```
+
+Le score de RMSLE obtenu par ce modèle sur les données de test est de 0.17250, l'erreur du modèle est donc beaucoup plus faible que pour notre premier modèle, et  le place à la 3248 ème place, lui faisant gagner `r 4450 - 3248` places dans le concours.
+
+```{r}
+# Création de jeux de données d'entrainement/validation pour évaluer nous même l'écart de prédiction du modèle
+smp_siz = floor(0.75*nrow(df_step_pca)) 
+set.seed(123)
+train_ind = sample(seq_len(nrow(df_step_pca)),size = smp_siz)
+train =df_step_pca[train_ind,]
+test=df_step_pca[-train_ind,]
+
+# Création du modèle saturé
+model_sature_stepwise <- lm(SalePrice ~ ., data = train)
+
+# Récupération du nombre d'observations pour la méthode stepwise
+n <- dim(train)[1]
+
+# Exécution du modèle saturé en stepwise
+step_model <- step(model_sature_stepwise, direction = c("both"), k = log(n), trace = 0)
+
+#Prédiction du modèle sur le jeu de test
+
+SalePrice <- predict(step_model, test)
+
+# Calcul de l'écart de prix moyen
+ecart_prix<- test$SalePrice - SalePrice
+
+#Calcul de l'écrat de prix moyen pour ce premier modèle
+mean(abs(ecart_prix))
+
+```
+
+En se basant uniquement sur l'échantillon d'entrainement recoupé, nous obtenons pour ce premier modèle un écart de prix moyen de 19168 € entre nos prévisions et la valeur réelle des biens, ce qui est effectivement mieux que le premier.
+
+<a href="#top" style="color:black;font-size:14px;"><sup>▲</sup></a>
+
+## 3.3 Troisième analyse : L'AFM
+
+&nbsp;&nbsp;&nbsp;&nbsp;On va ici chercher à regrouper les variables de l'ensemble du jeu de données par groupe de même thème et par type de variable. L'analyse factorielle multiple lancera ensuite une ACM ou une ACP sur chaque groupe de variable en fonction de sa nature, avant de pondérer l'ensemble de ces résultat pour équilibrer l'apport des différents groupes.
+
+## 3.3.1 Construction de l'AFM
+
+Nous avons donc regroupé l'ensemble des 80 variables par thématique et nature en 13 groupes différents : 
+
+* **Etat du bâtiment** : batiment-etat-quali, batiment-etat-quanti
+* **Matériaux composant le bâtiment** : batiment-materiaux-quanti, batiment-materiaux-quali
+* **Pièces compsant le bâtiment** : batiment-pieces
+* **Description du bâtiment** : batiment-sous-sol, batiment-surface
+* **Description technique du bâtiment** : batiment-technique
+* **Description de la qualité de l'environnement autour du bâtiment** : environnement-qualite
+* **Description du jardin du bâtiment** : jardin-surface, jardin-qualite
+* **Description des conditions de vente** : Vente-quanti, Vente-quali
+
+
+```{r}
+
+# Téléchargement des données
+train_AFM <- df_train_clean
+test_AFM <- df_test_clean
+
+df_AFM <- train_AFM %>%  
+  select(-SalePrice) %>% 
+  bind_rows(test_AFM)
+
+############################################ Préparation MFA ####################################################
+
+# Renommage des colonnes non traitables par dplyr en l'etat
+
+
+names(df_AFM)[names(df_AFM) == "1stFlrSF"] <- "FirstFlrSF"
+names(df_AFM)[names(df_AFM) == "2ndFlrSF"] <- "SecFlrSF"
+names(df_AFM)[names(df_AFM) == "3SsnPorch"] <- "TSsnPorch"
+
+AFM_with_preprocessing <- function(df) {
+  
+  # 1) Sélection et organisation des colonnes par groupes
+  df <- df %>% select(GarageQual, GarageFinish, GarageCond,
+                      
+                      MSSubClass, BldgType, HouseStyle, RoofStyle,
+                      
+                      KitchenQual, FireplaceQu, 
+                      
+                      GarageYrBlt, LowQualFinSF, YearBuilt, YearRemodAdd, OverallCond,
+                      
+                      OverallQual,
+                      
+                      RoofMatl, Exterior1st, Exterior2nd, MasVnrType, ExterQual, ExterCond,
+                      
+                      BsmtHalfBath, BsmtFullBath, FullBath, HalfBath, BedroomAbvGr, KitchenAbvGr, TotRmsAbvGrd, GarageCars, 
+                      
+                      BsmtCond, Foundation, BsmtQual, BsmtExposure, BsmtFinType1, BsmtFinType2, 
+                      
+                      MasVnrArea, BsmtFinSF1, BsmtFinSF2, BsmtUnfSF, TotalBsmtSF, FirstFlrSF, SecFlrSF, GrLivArea, GarageArea, 
+                      
+                      Utilities, Heating, HeatingQC, CentralAir, Electrical, Fireplaces,
+                      
+                      MSZoning, Street, Alley, LotConfig, Neighborhood, Condition1, Condition2,
+                      
+                      LotFrontage, LotArea, WoodDeckSF, OpenPorchSF, EnclosedPorch, TSsnPorch, ScreenPorch, PoolArea, MiscVal,
+                      
+                      LotShape, LandContour, LandSlope, GarageType, PavedDrive, PoolQC, Fence, MiscFeature, 
+                      
+                      YrSold,
+                      
+                      MoSold, SaleType, SaleCondition) %>%
+    
+    
+# 2) Changement de type pour les valeurs catégorielles chargées en numérique
+    
+    mutate(MoSold =  as.character(MoSold))%>% 
+    mutate(MSSubClass =  as.character(MSSubClass)) %>% 
+    mutate(Fireplaces =  as.character(Fireplaces))
+  
+# 3) Lancement de l'analyse factorielle multiple
+  
+  res.mfa <- MFA(df, 
+                 group = c(3, 4, 2 , 5, 1, 6, 8, 6, 9, 6, 7, 9, 8, 1, 3), 
+                 type = c("n", "n", "n", "s","s", "n", "s", "n", "s", "n", "n", "s", "n", "s", "n" ),
+                 name.group = c("Garage-quali","batiment-description-quali","batiment-confort-quali","batiment-etat-quanti","batiment-materiaux-quanti","batiment-materiaux-quali",
+                                "batiment-pieces", "batiment-sous-sol","batiment-surface", "batiment-technique","environnement-qualite",                                 "jardin-surface", "jardin-qualite", "Vente-quanti", "Vente-quali"),
+                 graph = FALSE, ncp = 50)
+}
+
+# Application de l'AFM pour l'échantillon total
+
+res.AFM <- AFM_with_preprocessing(df_AFM)
+```
+
+## 3.3.2 Analyse du résultat de l'AFM
+
+Nous obtenons une AFM contenant 341 dimensions, avec une variance expliquée par les premiers axes assez faible : les 20 premières dimensions n'expliquent que 27% de la variance totale du jeu de données.
+
+```{r}
+# Analyse de la variance cumulée expliquée
+
+eig_val <- res.AFM$eig
+colnames(eig_val)[3] <- "explained_var"
+barplot(eig_val[, 3], 
+        names.arg = 1:nrow(eig_val), 
+        main = "Variance cumulée expliquée",
+        xlab = "Dimensions",
+        ylab = "Variance expliquée (%)",
+        col = "steelblue")
+
+```
+
+En zoomant sur les premières dimensions, on peux voir que la variance expliquée chute rapidement et diminue de manière assez linéaire après la 9 ème dimension.
+
+```{r}
+fviz_eig(res.AFM, addlabels = TRUE, ylim = c(0, 10), ncp = 20) +
+  ggtitle("Variance expliquée par dimension de l'AFM") 
+
+```
+
+Voyons maintenant la contribution des individus aux premières dimensions :
+
+```{r}
+
+# Analyse des contributions des individus à la construction des principales dimensions
+
+contrib_ind<-res.AFM$ind$contrib
+fviz_contrib(res.AFM, choice = "ind", axes = 1:5, top = 50) +
+  ggtitle("Contributions des individus aux dimensions 1 à 5,\nles 50 plus importants sont ici sélectionnés") +
+  theme(plot.title = element_text(hjust = 0.5, size = 14))
+```
+
+L'individu 1299 ressort à nouveau de l'analyse comme pour l'acp, nous le retirons donc du jeu de données avant de poursuivre l'analyse.
+
+Analysons maintenant la contribution des différents groupes aux premières dimensions pour chercher à les interpréter :
+
+```{r}
+# On s'aperçoit que un individu contribue beaucoup plus que les autres dans la dimensions 3, nous choisissons de les retirer du jeu 
+
+# d'entrainement avant de relancer l'AFM
+
+df_AFM <- df_AFM[-c(1299),]
+res.AFM <- AFM_with_preprocessing(df_AFM)
+
+########### Analyse des compositions des premières dimensions ###############################
+fviz_mfa_var(res.AFM, "group") +
+  ggtitle("Contribution des groupes aux dimensions 1 et 2") 
+
+fviz_mfa_var(res.AFM, "group", axes = c(3,4)) +
+  ggtitle("Contribution des groupes aux dimensions 3 et 4") 
+
+```
+
+Ces graphiques permettent d'interpréter ces premières dimensions :
+
+* Dimension 1 : **Composé de la plupart des groupes hors conditions de vente** 
+
+* Dimension 2 : **Description qualitatif bâtiment/jardin/environnement**
+
+* Dimension 3 : **Description du bâtiment et surface du jardin**
+
+* Dimension 4 : **Description du bâtiment**
+
+Le groupe description du bâtiment composé uniquement de 4 variables (classification du bien, type de bien, style de bien, style de toiture) est fortement contributeur aux premières dimensions, ce qui est logique du point de vue métier.
+
+## 3.3.3 Régression linéaire sur le résultat de l'AFM
+
+Nous allons maintenant récupérer les coordonnées des individus de nos jeux d'entrainement et de validation dans le modèle AFM, afin de les réutiliser dans une régression linéraire comme fait dans les étapes précédentes. Si nous gardons les 5 premières dimensions qui constituent le coude de la variance expliquée comme vue plus haut, nous obtenons le modèle suivant :
+
+```{r}
+
+coord.train_AFM <- as.data.frame(res.AFM$ind$coord[1:1459,])
+coord.test_AFM <- as.data.frame(res.AFM$ind$coord[1460:2918,])
+
+sale_price <- train_AFM$SalePrice[-c(1299)]
+
+# Création du modèle final par steps
+
+model_0 <- lm(sale_price ~ ., data = coord.train_AFM[,1:5])
+model_full <- lm(sale_price ~ ., data = coord.train_AFM[,1:5])
+model_final <- step(model_0, scope=formula(model_full), direction="both")
+
+# Récupération de la formule
+step_cat_formula <- formula(model_final)
+
+summary_model_final <- summary.lm(model_final)
+
+# summary_model_final$coefficients <- summary_model_final$coefficients[1:5,]
+
+print(summary_model_final)
+```
+```{r}
+# Analyse de la normalité des résidus
+plot(model_final,2)
+```
+
+En dehors des extrémités, les points semblent ici aussi plutôt bien répartit sur la droite, ce qui pourrait nous permettre de valider l'hypothèse de normalité des résidus.
+
+```{r}
+print(shapiro.test(residuals(model_final)))
+```
+
+Pour autant, le Shapiro test renvoie une p-value significative, ce qui infirme toujours l'hypothèse de normalité des résidus.
+
+```{r}
+# Vérification de l'homogénéité des résidus
+plot(model_final, 3)
+```
+
+La répartition de la racine carrée des résidus standardisés n'est de plus toujours pas homogène, et la courbe de régression locale en rouge n'est pas droite. L'hypothèse d'homogénéité des résidus semble donc également rejetée au regard de cette première analyse visuelle .
+
+```{r}
+# test de Breush-Pagan
+bptest(model_final)
+```
+
+La p-value significative du test de Breush-Pagan confirme cette impression.
+
+```{r}
+# Evaluation à postériori de l'hypothèse de linéarité du modèle
+plot(model_final,1)
+```
+
+Concernant l'hypothèse de linéarité du modèle, le plot nous montre que lorsque les réponses prédites par le modèle (fitted values) augmentent, les résidus restent globalement uniformément distribués de part et d’autre de 0. Cela montre, qu’en moyenne, la droite de régression, est bien adaptée aux données, et donc que l’hypothèse de linéarité est acceptable. On remarquera tout de même des écarts plus importants à l'extrémité droite du modèle.
+
+En résumé, comme pour les premiers modèles, nous pouvons valider l'hypothèse de linéarité du modèle, mais devons rejeter les hypthèses d'homogénéité et de normalité des résidus, ce qui disqualifie également, ce modèle quant à toute interprétation des résultats.
+
+Le résultat de l'AFM est pourtant très concluant : en réduisant le jeu de données à 5 dimensions, nous arrivons encore à expliquer 80.62 % de la variance, ce qui en fait un modèle aisément interprétable.
+
+Afin de tester plus facilement les résultats en fonction du nombre de dimensions choisies pour optimiser le score Kaggle, nous avons écrit une fonction de prédiction prenant en entrée un nombre de dimensions n à définir.
+
+```{r}
+# Récupération des coordonnées de chaque individu dans les résultats d'AFM d'entrainement et de validation
+
+coord.train_AFM <- as.data.frame(res.AFM$ind$coord[1:1459,])
+coord.test_AFM <- as.data.frame(res.AFM$ind$coord[1460:2918,])
+
+sale_price <- train_AFM$SalePrice[-c(1299)]
+
+# Fonction permettant de prédire le résultat en fonction du nombre de dimentions choisi
+
+afm_prediction <- function(n) {
+  
+# Sélection des  dimensions par step
+model_0 <- lm(sale_price ~ ., data = coord.train_AFM[,1:n])
+model_full <- lm(sale_price ~ ., data = coord.train_AFM[,1:n])
+model_final <- step(model_0, scope=formula(model_full), direction="both", trace = 0)
+
+
+SalePrice <- predict(model_final, coord.test_AFM[,1:n])
+Id <- seq(1461, 2919, by=1)
+
+predict <- data.frame(cbind(Id, SalePrice))
+
+# Ecriture du résultat
+
+name_file <- paste0('predictions/AFM_dimentions_', as.character(n), '.csv')  
+
+fwrite(predict, name_file)
+
+}
+
+# Ecriture du résultat des prédictions pour un choix de dimensions de 5 à 15 avec un pas de 2
+
+dim <- seq(5, 15, by=2)
+
+for (i in dim) {afm_prediction(i)}
+
+```
+
+### 3.2.4 Evaluation du résultat
+
+La soumission du résultat de l'AFM où 5 dimensions sont gardées donne un RMSLE de 0,206. Le résultat est légèrement plus faible que pour l'ACP mais le modèle gagne en explicativité avec seulement 5 variables explicatives.
+
+```{r}
+# Création de jeux de données d'entrainement/validation pour évaluer nous même l'écart de prédiction du modèle
+coord.train_AFM <- as.data.frame(res.AFM$ind$coord[1:1459,])
+sale_price <- train_AFM$SalePrice[-c(1299)]
+
+sample <- cbind(coord.train_AFM, sale_price)
+
+
+smp_siz = floor(0.75*nrow(sample)) 
+set.seed(123)
+train_ind = sample(seq_len(nrow(coord.train_AFM[,1:5])),size = smp_siz)
+train =sample[,c(1:5,51)][train_ind,]
+test=sample[,c(1:5,51)][-train_ind,]
+model_0 <- lm(sale_price ~ ., data = train)
+
+model_full <- lm(sale_price ~ ., data = train)
+model_final <- step(model_0, scope=formula(model_full), direction="both", trace = 0)
+
+
+SalePrice <- predict(model_final, test)
+
+# Calcul de l'écart de prix moyen
+ecart_prix<- test$sale_price - SalePrice
+
+#Calcul de l'écrat de prix moyen pour ce premier modèle
+mean(abs(ecart_prix))
+
+
+```
+
+En se basant uniquement sur l'échantillon d'entrainement recoupé, nous obtenons pour ce premier modèle un écart de prix moyen de 22677 € entre nos prévisions et la valeur réelle des biens, ce qui en fait le moins bon des trois modèles sur cette base biaisé.
+
+# Conclusion et ouverture
+
+Afin d'avoir des éléments de comparaison, nous avons essayé d'autre modèles en machine learning et deep learning sur les données brutes sans autre préprocessing que la transformation des variables qualitatitives en variables quantitatives binaires et la normalisation des données (Notebook dans le répertoire projet). En se basant sur l'état de l'art dans le domaine de la régression nous avons essayé 
+
+**Deux modèles de machine learning**
+
+* RandomForestRegressor
+* GradientBoostingRegressor
+
+**Deux modèles de deep learning** (réseau dense simple, 5 couches de 256 neurones)
+
+* un modèle avec dropout
+* un modèle avec dropout et régularisation
+
+Le dropout et la régularisation servent à limiter le surapprentissage.
+
+Les résultats obtenus sont les suivant :
+
+
+```{r}
+resultats<- data.frame(model = c('full_regression', 'afm_regression_5dim', 'DL_dropout', 'afm_regression_20dim', 'pca_regression', 'DL_dropout_reg', 'ML_randomforest', 'ML_gradientboosting'), RMSE = c(0.637, 0.206, 0.184, 0.176, 0.172, 0.16, 0.157, 0.145))
+
+p <- resultats %>% 
+  mutate(model = factor(model, levels = model[order(RMSE)])) %>%ggplot(aes(x= model, y=RMSE, fill=model)) +
+  geom_bar(stat="identity")  +
+  scale_fill_viridis_d()+ theme(axis.text.x = element_text(face = "bold", size = 12, angle = 70, hjust = 1))+
+  xlab("") + 
+  ggtitle("Scores des différents modèles testés") + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5))
+                                
+p
+```
+
+Les modèles de machine learning dominent suivit du réseau de neurones dense avec dropout et régularisation, et ce sans étapes de prépération des données particulières ni tuning des hyperparamètres des modèles, ce qui laisse une large marge d'amélioration.
+
+Quant aux modèles de régression linéaire présentés, nous ne validons pas les hypthèses d'homoélasticité et de normalité des résidus, ce qui nécessiterait de continuer à travailler sur les données pour obtenir des résultats plus satisfaisant. Une hypothèse quant à ce problème concerne la répartition des prix de l'immobilier, qui n'est pas complètement normale, une transformation en log pourrait grandement améliorer le modèle.
+
+
+<a href="#top" style="color:black;font-size:14px;"><sup>▲</sup></a>
+
+# Bibliographie
+
+Green, s. B. (1991).  How many subjects does it take to do a regression analysis?, *Multivariate Behavioral Research*, *26*, 499-510
