@@ -1,0 +1,114 @@
+REG : Numéro identifiant la région
+LIBREG : Libellé de la région
+DEP : Numéro du département
+LIBDEP : Libellé du département
+EPCI : Etablissement public de coopération intercommunale (=Intercommunalité)
+LIBEPCI : Libellé de l'intercommunalité
+DROIT : Code type de droit immobilier ("1 = Pleine propriété, 
+										2 = Bail à réhabilitation, 
+										3 = Bail emphytéotique, 
+										4 = Usufruit, 
+										5 = Bail à construction")
+DEPCOM : Code géographique officiel de la commune INSEE
+CODEPOSTAL : Code postal de la commune
+LIBCOM : Libellé de la commune
+NUMVOIE : Numéro de la voirie = "chiffre uniquement"
+INDREP : Indice de répétition (bis, ter, ...)
+TYPVOIE : Type de voie (rue, avenue, ...)
+NOMVOIE : Nom de voie
+NUMAPPT : Complément d’identification du logement = N° appartement
+NUMBOITE : Complément d'identification du logement = N° boîte aux lettres
+ESC : Complément d'identification du logement = N° escalier
+COULOIR : Complément d'identification du logement = Couloir
+ETAGE : Complément d'identification du logement = Etage
+COMPLIDENT : Complément d'identification du logement autre
+ENTREE : Complément d'identification du logement = Entrée
+BAT : Complément d'identification du logement = Bâtiment
+IMMEU : Complément d'identification du logement = Immeuble
+COMPLGEO : Complément d'identification du logement = Autre
+LIEUDIT : Nom du lieu-dit
+QPV : Code logement situé en Quartier prioritaire de la Politique de la Ville (1 = Logement QPV, 
+																			   2 = Logement hors QPV)
+TYPECONST : Code type de construction du logement ("I = Individuel, 
+													C = Collectif, 
+													E = Etudiant")
+NBPIECE : Code nombre de pièces ("1 = 1 pièce, 
+								  2 = 2 pièces, 
+								  3 = 3 pièces, 
+								  4 = 4 pièces, 
+								  5 = 5 pièces, 
+								  6 = 6 pièces, 
+								  7 = 7 pièces, 
+								  8 = 8 pièces, 
+								  9 = 9 pièces ou plus")
+SURFHAB : Surface Habitable (en m²), 0 = non renseigné
+CONSTRUCT : Année d'achèvement de la construction 
+LOCAT : Année de première mise en location du logement dans le parc social
+PATRIMOINE : Année d'entrée du logement dans patrimoine locatif du bailleur
+ORIGINE : Code origine du patrimoine ("1 = Construction par l'organisme, 2 = Acquisition avec travaux, 3 = Acquisition sans travaux, 4 = Acquisition en vente en l'état futur d'achèvement (Vefa), ")
+FINAN : Code financement initial du logement"10 = PLA d'intégration - LLTS dans les DOM,
+											 11 = PLA LM/PLATS/PLAI - LLS dans les DOM,
+											 12 = PLA social / PLA ordinaire,
+											 13 = PLUS,
+											 14 = PLS/PPLS/PLA CFF,
+											 15 = PAP locatif,
+											 16 = PLI,
+											 17 = PCL (conventionné ou non) / PCLS,
+											 49 = Autre financement à partir de 1977 (1983 dans les DOM),
+											 50 = HBM,
+											 51 = PLR/PSR,
+											 52 = HLM/O,
+											 53 = ILM,
+											 54 = ILN,
+											 55 = Prêts spéciaux du CFF,Z
+											 99 = Autre financement avant 1977 (1983 dans les DOM)"
+FINANAUTRE : Libellé du financement "Autre"
+CONV : Indicatrice conventionnement à l'APL ("1 = Oui (Conventionné),
+											  2 = Non (Non conventionné)")
+NUMCONV : Numéro de la convention APL
+DATCONV : Date de prise d'effet de la convention APL (au format JJ/MM/AAAA)
+NEWLOGT : Code logement issu d'une fusion, d'un éclatement ou d'un changement d'usage("1 = Logement créé à partir de locaux antérieurement affectés à un autre usage,
+																					   2 = Logement créé par fusion ou éclatement de logements existants")
+CUS : Catégorie de financement auquel est rattaché le logement au titre du Convention d'Utilité Sociale (CUS) ("10 = 10.PLA d'intégration - LLTS dans les DOM,
+																												11 = 11.PLA LM/PLATS/PLAI - LLS dans les DOM,
+																												12 = 12.PLA social / PLA ordinaire,
+																												13 = 13.PLUS,
+																												14 = 14.PLS/PPLS/PLA CFF,
+																												15 = 15.PAP locatif,
+																												16 = 16.PLI,
+																												17 = 17.PCL (conventionné ou non) / PCLS,
+																												49 = 49.Autre financement à partir de 1977 (1983 dans les DOM),
+																												50 = 50.HBM,
+																												51 = 51.PLR/PSR,
+																												52 = 52.HLM/O,
+																												53 = 53.ILM,
+																												54 = 54.ILN,
+																												55 = 55.Prêts spéciaux du CFF,
+																												99 = 99.Autre financement avant 1977 (1983 dans les DOM)")
+DPEDATE : Date de réalisation du Diagnostic de Performance Energétique (DPE) 
+DPEENERGIE : Classe dans le Diagnostic de Performance Energétique (DPE) - consommation d'énergie ("2 = Consommation d'énergie A,
+																								   3 = Consommation d'énergie B,
+																								   4 = Consommation d'énergie C,
+																								   5 = Consommation d'énergie D,
+																								   6 = Consommation d'énergie E,
+																								   7 = Consommation d'énergie F,
+																								   8 = Consommation d'énergie G,
+																								   9 = Sans objet")
+DPESERRE : Classe dans le Diagnostic de Performance Energétique (DPE) - impact sur effet de serre ("2 = Impact sur l'effet de serre A,
+																									3 = Impact sur l'effet de serre B,
+																									4 = Impact sur l'effet de serre C,
+																									5 = Impact sur l'effet de serre D,
+																									6 = Impact sur l'effet de serre E,
+																									7 = Impact sur l'effet de serre F,
+																									8 = Impact sur l'effet de serre G,
+																									9 = Sans objet")
+SRU_EXPIR : Année d'expiration de la convention APL (format AAAA)
+SRU_ALINEA : Code Alinéa SRU ("1 = 1,
+							   2 = 2,
+							   3 = 3,
+							   Non renseigné")
+CODSEGPATRIM : Code segment de patrimoine dans la Convention d'Utilité Sociale (CUS)
+LIBSEGPATRIM : Libellé segment de patrimoine dans la Convention d'Utilité Sociale (CUS)
+
+
+

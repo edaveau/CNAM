@@ -1,0 +1,349 @@
+---
+title: "Untitled"
+output:
+  html_document:
+    df_print: paged
+---
+
+#Partie 2 - Data Visualisation
+
+Les packages à charger pour cette partie sont : data.table, dplyr, forcats, ggplot2, plyr, tidyr, treemapify
+Les données étant nettoyées, nous nous retrouvons donc avec une dataframe comprenant une observation par code INSEE de chaque ville et par année pour chaque indicateur. Toutefois, en raison du grand nombre d'indicateurs disponibles, et par souci d'efficacité, nous travaillerons sur des agrégats de données réduites. C'est-à-dire que la dataframe sur laquelle nous travaillons est au format large, plusieurs colonnes correspondant à différentes modalités d'une même variable.<br>
+Toutefois, pour des raisons de commodité, le package ggplot préfère le travail sur un format long de données (entre autres pour des raisons de lisibilité). Toutefois, si nous convertissions toutes les variables à modalité au format long, R produirait un produit cartésien de toutes ces variables et nous nous retrouverions donc avec une dataframe inutilement longue et lourde avec laquelle il serait quasi impossible de travailler.<br>
+Ainsi, pour rester parcimonieux dans nos analyses, nous n'utiliserons les variables à modalité que lorsque cela sera nécessaire.
+
+```{r include=FALSE}
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(data.table, dplyr, forcats, ggplot2, gridExtra, tidyr, treemapify)
+
+df_origin <- fread(input = "~/R/Markdown/DataVis/data/df_agrege.csv")
+
+#Les erreurs de conversion ont fait que les codes postaux à 4 chiffres perdaient leur 0. Nous le rajoutons manuellement ici.
+df_origin$Code_postal <- sprintf("%05d", df_origin$Code_postal)
+
+unique(nchar(df_origin$Code_postal))
+
+#Nous créons ici les noms des colonnes dont nous aurons besoin à chaque fois, pour ne pas avoir à les répéter à chaque fois que l'on choisira de nouveaux indicateurs. Le préfixe gat_ vient de l'anglais "gather" et indique les colonnes que l'on rassemblera lorsqu'on s'intéressera à différents indicateurs
+gat_qvp <- c("QVP_nbr_logements_quartier_prioritaire", "QVP_nbr_logements_quartier_non_prioritaire")
+
+gat_origine <- c("origine_nbr_Acquisition_avec_travaux", "origine_nbr_Acquisition_sans_travaux", 
+                 "origine_nbr_Construction_par_organisme", "origine_nbr_VEFA")
+
+gat_type_logement <- c("type_nbr_logements_collectifs", "type_nbr_logements_individuels", "type_nbr_logements_etudiants")
+
+gat_energie <- c("consommation_energie_nbr_logements_NA", "consommation_energie_nbr_logements_classe_A",
+                 "consommation_energie_nbr_logements_classe_B", "consommation_energie_nbr_logements_classe_C",
+                 "consommation_energie_nbr_logements_classe_D", "consommation_energie_nbr_logements_classe_E",
+                 "consommation_energie_nbr_logements_classe_F", "consommation_energie_nbr_logements_classe_G")
+
+gat_construct <- c("classe_annee_construction_nbr_logements_NA", "classe_annee_construction_nbr_logements_avant_1900", 
+                   "classe_annee_construction_nbr_logements_1901_1950",  "classe_annee_construction_nbr_logements_1951_1970", 
+                   "classe_annee_construction_nbr_logements_1991_2010", "classe_annee_construction_nbr_logements_2011_2017")
+
+gat_pieces <- c("nombre_de_pieces_nbr_logements_1_piece", "nombre_de_pieces_nbr_logements_2_pieces",
+                "nombre_de_pieces_nbr_logements_3_pieces", "nombre_de_pieces_nbr_logements_4_pieces_et_plus")
+
+gat_surface <- c("surface_habitable_nbr_logements_moins_de_15m2", "surface_habitable_nbr_logements_16_30m2", 
+                       "surface_habitable_nbr_logements_31_60m2", "surface_habitable_nbr_logements_61_90m2",
+                       "surface_habitable_nbr_logements_plus_de_90m2")
+
+gat_etage <- c("etage_nbr_batiments_0_1_etages", "etage_nbr_batiments_2_4_etages", "etage_nbr_batiments_5_10_etages",
+               "etage_nbr_batiments_11_25_etages", "etage_nbr_batiments_NA_etages")
+
+gat_nbr_bat <- c("logement_nbr_batiments_1_4_logements", "logement_nbr_batiments_5_10_logements", "logement_nbr_batiments_11_25_logements",
+                 "logement_nbr_batiments_26_100_logements", "logement_nbr_batiments_plus_de_100_logements")
+
+cols_kept <- c("departmentName", "regionName", "nom_commune", "code_INSEE", "annee", "nbr_logements_ville",
+               "moyenne_nombre_de_pieces_logement", "moyenne_surface_habitable_logement", "moyenne_annee_achevement_construction")
+
+#Ici, nous créons la fonction que nous utiliserons pour sélectionner les données d'intérêt
+extract_columns <- function(data, desired_columns) {
+    desired_columns <- c(cols_kept, desired_columns)
+    extracted_data <- data %>%
+    select_(.dots = desired_columns)
+  return(extracted_data)
+}
+
+#Dont voici un exemple d'utilisation : df <- extract_columns(df_origin, gat_qvp)
+df <- df_origin %>%
+  select(cols_kept)
+
+```
+
+## I
+
+### 1) Evaluer la quantité de logements sociaux par région 
+
+Le jeu de données nettoyé peut être analysé sous plusieurs angles différents. Nous en choisirons deux : <br>
+-  Les données non catégorielles : eg. Nombre de logements par villes, moyenne du nombre de pièces par logements, surface habitable moyenne...
+-  Les données catégorielles : eg. Quartier prioritaire ou non, nombre de logements par catégories de surface...
+Nous pouvons tout d'abord commencer par observer l'évolution du nombre de logements par région et par an.
+Pour commencer, nous pouvons représenter 2 données : Le nombre total de logements sociaux par région ainsi que le nombre moyen de logements sociaux par ville (pour des questions de simplicité, nous choisissons pour ce graphique les villes comme facteur de groupe qui sont plus simples à se représenter que les codes INSEE).
+
+```{r echo=FALSE}
+
+#Mise en facteur de la colonne annee
+if(is.character(df$annee)==FALSE){
+  df$annee <- factor(as.character(df$annee))
+}
+
+df %>%
+  group_by(regionName, annee) %>%
+  ggplot(aes(x = fct_rev(regionName), y = nbr_logements_ville, group = fct_rev(annee), fill = annee)) +
+  geom_bar(stat = "summary", fun.y = sum, position = "dodge") + 
+  coord_flip() + 
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect("#BDC4C7")) +
+  ggtitle("Nombre total de logements par Région\n") +
+  guides(fill=guide_legend(title="Année"))
+
+
+df %>%
+  group_by(regionName, annee, nom_commune) %>%
+  ggplot(aes(x = fct_rev(regionName), y = nbr_logements_ville, group = fct_rev(annee), fill = annee)) +
+  geom_bar(stat = "summary", fun.y = mean, position = "dodge") + 
+  coord_flip() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect("#BDC4C7")) +
+  ggtitle("Nombre moyen de logements par ville par Région\n") +
+  guides(fill=guide_legend(title="Année"))
+
+```
+
+Le premier graphique est informatif quand au nombre total de logement dans chaque région. Toutefois, il pourrait être intéressant d'avoir les résultats de ce graphique ordonnés de la plus haute valeur vers la plus faible, afin de connaître les régions comprenant le plus de logement pour aboutir vers celles en ayant le moins et ainsi rendre ce graphique plus lisible. De même, nous pouvons questionner la pertinence de la séparation des départements d'outre-mer dont le faible nombre rend complexe la lisibilité.
+Le second graphique nous permet de voir la quantité moyenne de logements par ville pour chaque région. Ainsi, ce graphique permet de nous renseigner sur la densité de logements moyenne dans les villes de chaque région. 
+Comme nous pouvons le voir, les données semblent avoir été correctement nettoyées pour la plupart des régions, mais nous nous trouvons face à des incohérences pour certains départements d'outre-mer. La Réunion cumulerait en effet en moyenne deux fois plus de logements par ville que l'Île de France, mais cela uniquement sur deux années. Des résultats moindres mais similaires apparaissent pour la Guadeloupe, la Guyane et la Martinique avec une baisse soudaine du nombre moyen de logements sociaux par ville en 2017. Enfin, Mayotte ne présenterait des données que sur 2018, et sur un volume tel qu'il n'est pas suffisant pour apparaître sur le graphique.
+C'est pourquoi nous avons décidé pour la suite d'aggréger les données des DOM-TOM en une seule catégorie. Nous espérons ainsi voir si une erreur lors de la saisie des données pour un DOM se serait reportée sur un autre DOM.
+Concernant l'hexagone, l'Île de France dépasse toutes les autres régions sur le nombre de logements sociaux par ville de loin, avec environ `r round(mean(df$nbr_logements_ville[df$regionName == "Ile-de-France"]), 2)` logements sociaux par ville. Suit la région PACA qui possède le second plus grand parc de logements sociaux par ville, avec environ `r round(mean(df$nbr_logements_ville[df$regionName == "Provence-Alpes-Côte d'Azur"]), 2)` logements sociaux.
+Nous pouvons maintenant continuer notre analyse en améliorant la clarté des graphiques. Ici, nous allons donc regrouper les DOM sous un seul facteur, et nous trierons aussi les résultats du plus grand nombre de logements par le plus petit.
+
+```{r }
+
+#Renommage des noms régionaux des DOM-TOM en un nom unique sur la df en cours et la df d'origine.
+df$regionName <- factor(df$regionName)
+df$regionName <- fct_collapse(df$regionName, 
+                      DOMTOM = c("Guadeloupe", "Guyane", "La Réunion", "Martinique", "Mayotte"))
+
+df_origin$regionName <- factor(df_origin$regionName)
+df_origin$regionName <- fct_collapse(df_origin$regionName, 
+                      DOMTOM = c("Guadeloupe", "Guyane", "La Réunion", "Martinique", "Mayotte"))
+
+df %>%
+  group_by(regionName, annee) %>%
+  mutate_at("nbr_logements_ville", sum, na.rm = TRUE) %>%
+  ggplot(aes(x = reorder(fct_rev(regionName), nbr_logements_ville), y = nbr_logements_ville, 
+             group = fct_rev(annee), fill = annee)) +
+  geom_bar(stat = "summary", fun.y = unique, position = "dodge") + 
+  coord_flip() +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect("#BDC4C7")) +
+  ggtitle("Nombre total de logements par Région\n") +
+  guides(fill=guide_legend(title="Année"))
+
+df %>%
+  group_by(regionName, annee, nom_commune) %>%
+  ggplot(aes(x = reorder(fct_rev(regionName), nbr_logements_ville), y = nbr_logements_ville, 
+             group = fct_rev(annee), fill = annee)) +
+  geom_bar(stat = "summary", fun.y = mean, position = "dodge") + 
+  coord_flip() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect("#BDC4C7")) +
+  ggtitle("Nombre moyen de logements par ville par Région\n") +
+  guides(fill=guide_legend(title="Année"))
+```
+
+La combinaison des résultats pour les DOM-TOM nous permet d'avoir des résultats plus en lien avec le reste des régions françaises sur les deux graphiques. Toutefois, les incohérences que nous avions observé sur La Réunion sont trop importantes et impactent de manière significatives les résultats des DOM-TOM. Ainsi, par souci de validité des données, nous supprimerons ces régions des futures analyses.
+Il aurait été toutefois intéressant que les données des DOM-TOM soient cohérentes, car les résultats apparents semblent montrer que bien que ces régions n'aient pas le plus grand parc social immobilier de France, elles en ont la plus grande densité après Paris. Cette conclusion implique tous DOM-TOM confondus, car il semblerait que Paris ait une plus faible concentration de logements sociaux que La Réunion. Toutefois, comme précisé plus haut, nous ne pourrons pas investiguer ces questions en raison de la mauvaise fiabilité des données dans le temps.
+Finalement, nous pouvons faire un graphique résumant les différences de nombre de logements sociaux par année en pourcentage, afin de mettre en valeur les régions ayant eu le plus grand pourcentage de développement de leur parc immobilier chaque année.
+
+```{r echo=FALSE}
+
+df <- df %>%
+  filter(regionName != "DOMTOM")
+
+df_origin <- df_origin %>%
+  filter(regionName != "DOMTOM")
+
+df %>%
+  group_by(regionName, annee) %>%
+  mutate_at("nbr_logements_ville", sum, na.rm = TRUE) %>%
+  arrange(regionName, nom_commune, annee) %>%
+  group_by(regionName, nom_commune) %>%
+  mutate(difference = ((nbr_logements_ville - lag(nbr_logements_ville))/lag(nbr_logements_ville))*100) %>%
+  filter(difference != 0|NA) %>%
+  {
+  ggplot(., aes(fct_rev(regionName), difference, group = fct_rev(annee), fill = annee)) + 
+    geom_text(aes(label = paste0(c(round(difference, digits = 2)), "%")), 
+              position = position_dodge(width = .9), size = 2.8, hjust = -0.03) +
+    geom_bar(stat = 'identity', position = 'dodge') +
+    coord_flip() +
+    xlab('') +
+    guides(fill=guide_legend(title="Année")) +
+    ggtitle("Evolution en % du nombre de logements par année\npar rapport à l'année précédente") +
+    scale_y_continuous(limits = c(0, round(max(.$difference)+max(.$difference)*0.1))) +
+    theme(axis.title.x=element_blank(),
+      plot.title = element_text(hjust = 0.5),
+      panel.background = element_rect("#BDC4C7"))
+  }
+
+```
+
+Sur ce graphique, on peut noter plusieurs indications concernant le développement du parc immobilier dans les différentes régions de France métropolitaine :
+Tout d'abord, la région avec le plus fort taux de développement immobilier est sans conteste la région Nouvelle-Aquitaine avec une augmentation de près de 5% de son parc immobilier en 2018, cela en dépit du fait qu'elle ne fasse pas partie des régions avec le moins de logements sociaux. Cela témoigne de la volonté d'investissement des élus locaux pour favoriser l'installation de nouveaux foyers dans leur région.
+A contrario, la région Bourgogne-Franche Comté a ralenti la progression de son développement immobilier social en 2018 en dépit du fait d'avoir déjà été la région ayant le moins investit en 2017. Si l'on compare avec le graphique ordonné de la quantité totale de logements par région, cette région est la 3ème région la moins équipée de France en termes de logements.
+L'Île de France elle semble poursuivre une progression constante de son parc immobilier chaque année, avec une hausse annuelle d'environ 1,6%. Dans l'ensemble, il paraît que quasiment toutes les régions cherchent à continuer vers la progression du nombre de logements sociaux disponibles.
+
+### 2) Croiser les données avec la quantité de personnes par région
+
+## II - 
+
+### 1) La surface habitable des logements est-elle constante par région ?
+
+```{r echo = FALSE}
+
+df <- df_origin %>%
+  select(cols_kept, gat_energie)
+df$annee <- as.factor(df$annee)
+
+df <- gather(data = df, key = cat_energie, value = nbr_energie, gat_energie, factor_key = TRUE)
+df$cat_energie <- factor(df$cat_energie, levels = c("consommation_energie_nbr_logements_classe_A",
+                                                    "consommation_energie_nbr_logements_classe_B",
+                                                    "consommation_energie_nbr_logements_classe_C",
+                                                    "consommation_energie_nbr_logements_classe_D",
+                                                    "consommation_energie_nbr_logements_classe_E",
+                                                    "consommation_energie_nbr_logements_classe_F",
+                                                    "consommation_energie_nbr_logements_classe_G",
+                                                    "consommation_energie_nbr_logements_NA"))
+df %>%
+  filter(annee == "2018") %>%
+  mutate(cat_energie = plyr::revalue(cat_energie, c("consommation_energie_nbr_logements_classe_A" = "A",
+                                                    "consommation_energie_nbr_logements_classe_B" = "B",
+                                                    "consommation_energie_nbr_logements_classe_C" = "C",
+                                                    "consommation_energie_nbr_logements_classe_D" = "D",
+                                                    "consommation_energie_nbr_logements_classe_E" = "E",
+                                                    "consommation_energie_nbr_logements_classe_F" = "F",
+                                                    "consommation_energie_nbr_logements_classe_G" = "G",
+                                                    "consommation_energie_nbr_logements_NA" = "Inconnu"))) %>%
+  ggplot(aes(x = fct_rev(regionName), y = nbr_energie, group = cat_energie, fill = fct_rev(cat_energie))) +
+    geom_bar(position = "fill", stat = "identity") +
+    coord_flip() +
+    scale_fill_viridis_d() +
+    theme(axis.title.x=element_blank(),
+         axis.title.y=element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.background = element_rect("#BDC4C7")) +
+    ggtitle("Proportion de logements sociaux\npar catégorie énergétique") +
+    guides(fill=guide_legend(title="Catégorie", reverse = TRUE)) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    geom_hline(aes(yintercept = 0.5), size = 1, color = "black", linetype = "dashed")
+
+
+
+```
+
+
+### 2) Surface habitable par région
+
+```{r}
+
+df <- df_origin %>%
+  select(cols_kept, gat_surface)
+
+df <- gather(data = df, key = surface, value = nbr_surface, gat_surface, factor_key = TRUE)
+df$surface <- factor(df$surface, levels = c("surface_habitable_nbr_logements_moins_de_15m2",
+                                        "surface_habitable_nbr_logements_16_30m2",
+                                        "surface_habitable_nbr_logements_31_60m2",
+                                        "surface_habitable_nbr_logements_61_90m2",
+                                        "surface_habitable_nbr_logements_plus_de_90m2"))
+
+df %>%
+  filter(annee == 2018) %>%
+  mutate(surface = plyr::revalue(surface, c("surface_habitable_nbr_logements_moins_de_15m2" = "< 15m²",
+                                            "surface_habitable_nbr_logements_16_30m2" = "16-30m²",
+                                            "surface_habitable_nbr_logements_31_60m2" = "31-60m²",
+                                            "surface_habitable_nbr_logements_61_90m2" = "61-90m²",
+                                            "surface_habitable_nbr_logements_plus_de_90m2" = "> 90m²"))) %>%
+  group_by(regionName, surface) %>%
+  mutate(sum_surface = sum(nbr_surface)) %>%
+  select(regionName, surface, sum_surface) %>%
+  distinct() %>%
+  ggplot(aes(area = sum_surface, fill = surface, group = surface, subgroup = surface, label = regionName)) +
+  geom_treemap() +
+  geom_treemap_subgroup_border() +
+  geom_treemap_text(colour = "black", place = "center", reflow = T) + 
+  scale_fill_viridis_d() +
+  theme(plot.caption=element_text(hjust=0),
+        plot.title=element_text(face="bold", hjust = 0.5))+
+  labs(title="Répartition des logements\nen fonction de leur surface")
+
+```
+
+Est-ce qu'on ne rognerait pas davantage sur les surfaces dans les qvp
+
+```{r}
+
+df_origin %>%
+  select(cols_kept, gat_qvp) %>%
+  filter(annee == 2018) %>%
+  gather(data = ., key = qvp, value = nbr_qvp, gat_qvp, factor_key = TRUE) %>%
+  mutate(qvp = fct_recode(qvp, "Zone Prioritaire" = "QVP_nbr_logements_quartier_prioritaire",
+                               "Zone non Prioritaire" = "QVP_nbr_logements_quartier_non_prioritaire")) %>%
+  filter(moyenne_surface_habitable_logement <= quantile(moyenne_surface_habitable_logement, 0.995), 
+         moyenne_surface_habitable_logement >= quantile(moyenne_surface_habitable_logement, 0.005)) %>%
+  arrange(nom_commune) %>%
+  group_by(nom_commune) %>%
+  ggplot(aes(x = moyenne_surface_habitable_logement, y = nbr_qvp, group = qvp)) +
+    geom_point(aes(col = qvp), alpha = 0.7, shape = 16, size = 1) +
+    scale_color_viridis_d() +
+    theme(plot.title = element_text(hjust = 0.5),
+          panel.background = element_rect("#BDC4C7"),
+          legend.key = element_rect(fill = "#BDC4C7")) +
+    ggtitle("Corrélation Surface du logement x Nombre de logements\nen fonction du type de zone") +
+    xlab("Surface des logements en m²") +
+    ylab("Nombre de logements\n") +
+    guides(color=guide_legend(title="Type de Zone", override.aes = list(size = 5)))
+
+
+  
+```
+
+```{r}
+
+#############
+### TRASH ###
+#############
+###
+###test <- df_origin %>%
+###  select(cols_kept, gat_qvp, gat_nbr_bat) %>%
+###  filter(annee == 2018) %>%
+###  gather(data = ., key = qvp, value = nbr_qvp, gat_qvp, factor_key = TRUE) %>%
+###  gather(data = ., key = log_per_bat, value = nbr_log_per_bat, gat_nbr_bat, factor_key = TRUE) %>%
+###  mutate(qvp = fct_recode(qvp, "Zone Prioritaire" = "QVP_nbr_logements_quartier_prioritaire",
+###                               "Zone non Prioritaire" = "QVP_nbr_logements_quartier_non_prioritaire")) %>%
+###  mutate(log_per_bat = fct_recode(log_per_bat, "1 à 4 logements" = "logement_nbr_batiments_1_4_logements",
+###                               "5 à 10 logements" = "logement_nbr_batiments_5_10_logements",
+###                               "11 à 25 logements" = "logement_nbr_batiments_11_25_logements",
+###                               "26 à 100 logements" = "logement_nbr_batiments_26_100_logements",
+###                               "Plus de 100 logements" = "logement_nbr_batiments_plus_de_100_logements")) %>%
+###  mutate(nbr_log = ifelse(nbr_log_per_bat == nbr_qvp, nbr_log_per_bat, 0)) %>%
+###  arrange(nom_commune)
+###
+###
+###test <- test %>%
+###  group_by(log_per_bat) %>%
+###  mutate(sum = sum(nbr_log_per_bat)) %>%
+###  select(regionName, qvp, log_per_bat, sum) %>%
+###  distinct()
+###
+
+```
+

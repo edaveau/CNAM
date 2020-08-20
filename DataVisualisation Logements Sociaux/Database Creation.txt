@@ -1,0 +1,63 @@
+#################################
+##### AIMS OF THIS DOCUMENT #####
+#################################
+
+In order for this project to be reproducible, we listed here the information you'll need to be able to reproduce all the steps we did.
+Since we use different tools, we considered having a didactic approach for our readers to understand the steps we made.
+If you have any questions, please do not hesitate to contact us at :
+- Emmanuel DAVEAU : emmanuel.daveau.auditeur@lecnam.net
+- Yohann Bourhis : yohann.bourhis.auditeur@lecnam.net
+
+### SOFTWARE PREREQUISITES :
+To run correctly each part of this document, you'll need to install the following software :
+R		RStudio			SQLite Studio		
+
+### R PACKAGES NEEDED :
+Please run RStudio, then run the following commands :
+if (!require("pacman")) install.packages("pacman")
+p_load(data.table)
+
+We advise you to read carefully each part before running it.
+
+#################################
+######### FILES DOWNLOAD ########
+#################################
+
+First of all, you'll need to download the raw data files at https://www.data.gouv.fr/fr/datasets/repertoire-des-logements-locatifs-des-bailleurs-sociaux/
+Please download the files for years 2016, 2017 and 2018. Then extract each .zip file to a folder of your choice.
+
+For demonstration purposes, we'll use the following folder : "C:/Users/[username]/Documents/R/DataVisualisation/"
+Rename each extracted folder "Region2016", "Region2017" and "Region2018".
+
+#################################
+######### MERGING FILES #########
+#################################
+
+Now that we have downloaded the data and made sure they could be easily merged, please open the script "data_merge.R" and run it ("Ctrl+A", "Ctrl+Enter")
+PLEASE NOTE : For this file to open, we'll consider each Region201X directory to be in the "~/R/DataVisualisation" directory of R (usually "C:/Users/[username]/Documents/R")
+
+If the requirements specified above are met, you should see progression bars running, meaning that the files are successfully being merged.
+If the bar seems stuck at some point, please do not try to interrupt the process as this may take a while (maybe about 15-20 minutes depending on your configuration). This usually happens when R has to parse a large file.
+Our advice for better performance : Use this time to take a break, have a coffee, maybe read a book or play some guitar!
+We also advise you to close any other programs running.
+
+#################################
+####### DATABASE CREATION #######
+#################################
+
+### This method uses data from 2018 for a demonstration.
+### Please, create a table for each aggregated year data.
+
+Create a folder named "C:/sqlite", and another one "C:/sqlite/datavis"
+Copy each "data201X.csv" in the "datavis" folder
+
+Download and Install SQLite Studio from https://sqlitestudio.pl/index.rvt, then run SQLite Studio
+First, you'll need to create the Database. Click on "Database/Add a Database" (or Ctrl+O)
+Then, click the green circle with the "+" sign in it. Select the folder you want to create your database in (eg. "C:/sqlite/datavis") and enter the name of the database. Click on "OK". Give it a list name, then click on OK
+Your database should now be visible in the menu on the left of SQLite Studio
+
+Open the SQL Editor "Tools/SQL Editor" (or "Alt+E"), then double click on the "datavis" database
+Click on "Tools/Import", then give a name to your table. For instance : "data2018" for the aggregated data from 2018.
+Select the data2018.csv file. Choose the UTF-8 Encoding, and check the "First line represents CSV column names" box. Select "," as separator.
+Click on "Finish". 
+PLEASE NOTE : The import should take about 3 min per aggregated file.

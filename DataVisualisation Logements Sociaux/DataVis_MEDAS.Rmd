@@ -1,0 +1,1030 @@
+---
+title: "Dossier Datavisualisation"
+author: "M. DAVEAU Emmanuel"
+params:
+  data_IDF_2016: C:/Users/edaveau/Documents/dataviz/data2016_2
+  data_regions_2016: C:/Users/edaveau/Documents/dataviz/data2016_1
+  data_2017: C:/Users/edaveau/Documents/dataviz/data2017
+  data_2018: C:/Users/edaveau/Documents/dataviz/data2018
+  data: C:/Users/edaveau/Documents/dataviz/data
+output:
+  pdf_document:
+    df_print: kable
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+  html_document:
+    df_print: paged
+    toc: yes
+---
+#Doc latex : https://bookdown.org/yihui/rmarkdown/pdf-document.html
+```{r setup, include=FALSE}
+#Généralisation du paramétrage des chunks
+knitr::opts_chunk$set(warning=FALSE,message=FALSE)
+```
+# Introduction
+
+## Présentation du sujet
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Depuis 2017, les bailleurs sociaux sont touchés par différentes mesures gouvernementales qui ont grandement diminuer leurs recettes locatives, comme expliqué [dans cet article du monde](https://www.lemonde.fr/societe/article/2019/03/22/hlm-les-negociations-sur-les-finances-des-bailleurs-sociaux-au-point-mort_5439710_3224.html).  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nous allons dans cette étude tenter de déterminer si la baisse de revenu des bailleurs sociaux a eu un impact sur l'offre de logements de 2016 à 2018, en analysant l'évolution de leurs caractéristiques rendues disponibles sur cette période. Nous utiliserons pour cette étude les données du parc social français en open data sur le site [www.data.gouv.fr](https://www.data.gouv.fr/fr/datasets/repertoire-des-logements-locatifs-des-bailleurs-sociaux/).  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Etant donné le volume important des données, nous avons prit le parti de les agréger par ville, pour les rendre plus lisibles et plus facilement traitable en local. En effet lors du passage en site web shiny, l'appel des données se fera en dynamique pour afficher les datavisualisations, et des données trop lourdes provoqueraient des temps de chargement beaucoup trop long rendant inexploitable le site.  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;La première partie de ce document se consacrera ainsi à la présentation de la méthodologie que nous avons employé pour les synthétiser. Nous verrons ensuite dans une deuxième partie quelques exemples de visualisations de données que nous pouvons faire à partir de ces données en nous plaçant au niveau de granularité région pour garder une bonne lisibilité et interprétabilité d'ensemble avec des graphiques statiques. Nous terminerons par une conclusion retraçant notre parcours dans l'étude de ce dossier, et présentant des pistes de travail alternatives qui auraient pu être plus efficientes. 
+
+## Précisions techniques
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;L'ensemble de ce travail a été effectué avec R via RStudio. Les packages que nous utilisons pour le traitement des données et l'édition de ce document en format Markdown sont data.table, dplyr, sqldf, purrr, plyr, stringr, knitr, forcats, ggplot2, treemapify et tidyr. Ils seront téléchargés automatiquement s'ils ne sont pas déjà installés.
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;L'édition de ce Markdown nécessite de charger les données sources, et de les répartir en différents dossiers en prenant soin de retirer préalablement les fichiers excels se rapportant à de la documentation sur les données fournies. Le chemin d'accès de ces dossiers sera à préciser dans l'entête de ce script Markdown. Les dossiers data_regions_2016, data_IDF_2016, data_2017 et data_2018 doivent contenir les données brutes des logements sociaux obtenues à l'adresse indiquée ci dessus, et réparties en fonction du nom du dossier. Le dossier data contiendra les données sortantes de ce document, à savoir les données nettoyées et agrégées, ainsi que le pdf et le html final et les données en open data suivantes :
+
+* le référentiel national des codes postaux nommé *laposte* et les communes nouvelles donnant la corespondance entre les anciennes et les nouvelles communes nommé *communes_nv*, disponibles sur <https://www.data.gouv.fr/fr/datasets/base-officielle-des-codes-postaux/>
+
+* la correspondance entre le numéro INSEE de la commune, le nom de la commune et les codes départents et région auquels elle appartient trouvée sur le site de l'INSEE à l'adresse <https://www.insee.fr/fr/information/2028028>, à noter qu'il est nécessaire de ne récupérer que le premier onglet, et de supprimer les 5 premières lignes pour que ce jeu de données se charge correctement
+
+* la correspondance entre les codes départements, codes régions, noms de département et noms de régions trouvés sur le compte GitHub <https://gist.github.com/gzurbach/b0ccdeda51ec2fe135d5> et contrôlé par nos soins qu'on a nommé *region*.
+
+* la population par département trouvée sur le site de l'INSEE pour l'année 2016 <https://www.insee.fr/fr/statistiques/3677785?sommaire=3677855>. Nous l'avons toutefois modifié pour obtenir une correspondance sur le code INSEE des communes, toutes les étapes sont précisées dans la partie __Croisement des données avec celles de la population par villes__
+
+```{r include=FALSE}
+#Importation des librairies
+if (!require("pacman")) install.packages("pacman")
+
+pacman::p_load(data.table, plyr, dplyr, sqldf, purrr, stringr, knitr, forcats, ggplot2, tidyr, treemapify)
+
+```
+
+# Première partie : Traitement des données brutes
+
+## Analyse du corpus et choix des variables
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Les données disponibles sont composées d'un fichier csv par an et par région ou par département dans le cas de l'Ile-de-France. On s'aperçoit déjà que ces données sont hétérogènes de par leur structure : les différents fichiers n'ont pas tous le même nombre de colonne, et une variable identique peut avoir un nom différent d'une année sur l'autre. Notre premier objectif est donc d'homogénéiser ces différents datasets par des opérations de pré-traitement avant de les réunir dans un jeu de données commun.
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Une première étude de ces données va nous permettre de choisir les variables qui rentrerons dans notre périmètre d'étude. Elles doivent être communes à toutes les sources de données puisque notre objectif est d'observer ces variables au cours du temps. Nous nous sommes également appuyés sur les dictionnaires de données joints à certains des sets. Cette étude nous a fait retenir les variables suivantes :
+
+* **Le code INSEE de la commune** qu'on nommera *code_INSEE*. Il nous servira d'identification pour la commune. En effet, en étudiant de plus près les noms de communes et les codes postaux, nous nous sommes rendu compte d'un certain nombre d'anomalies. Les noms de communes ont été fournis avec différents formatages qui rendraient leur traitement très laborieux pour être regroupés, et les codes postaux corespondent parfois aux codes d'anciennes communes qui n'existent plus aujourd'hui.
+
+* **L'ensemble des données adresse jusqu'au niveau numéro de batiment** permettant d'identifier le logement à une adresse physique, qu'on concatènera par la suite pour créer un identifiant adresse. Cela nous permettra d'agréger certaines données comme le nombre de batiments dans une ville ou la répartition de la hauteur des batiments dans la ville.
+
+* **L'ensemble des caractéristiques physiques d'un logement**, à savoir le nombre de pièces du logement noté *nombre_de_pieces*, la surface habitable notée *surface_habitable*, l' *etage*, si le logement rentre dans la convention APl noté *conventionne_APL*, et la classe énergie du logement notée *consommation_energie*.
+
+* **L'ensemble des caractéristiques du batiment** comme son ancienneté notée *annee_achevement_construction*, l'état du batiment lors de l'entrée dans le patrimoine du bailleur social noté *origine_du_batiment*, et à quel alinéa de la loi SRU   
+
+* **La référence de l'alinéa à la loi SRU** auquel la commune du logement doit se conformer, noté *code_commune_SRU*, entraînant l'obligation d'une certaine proportion de logements sociaux.
+
+## Chargement et pré-traitement
+
+### Chargement des datasets
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;On va donc charger les jeux de données ayant une structure identique, puis les retravailler avant de les regrouper. On chargera donc nos données en quatre paquets différents :
+
+* les données 2016 en région
+
+* les données 2016 en Ile-de-France
+
+* les données 2017
+
+* les données 2018
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;On notera l'utilisation de la fonction fread du package data.table qui permet de charger de gros volumes de données de façon bien plus rapide que la fonction read standard de R, combinée aux fonctions lapply et do.call pour charger en un seul jeu de données une liste de fichiers csv ayant la même structure dans un dossier définit.
+
+```{r include=TRUE}
+#Exemple de chargement des données pour les données en région en 2016
+setwd(params$data_regions_2016)
+files <- list.files(pattern="*.csv")
+df2016_1 <- do.call(rbind, lapply(files, fread))
+```
+
+```{r include=FALSE}
+#Chargement des autres jeux de données
+setwd(params$data_IDF_2016)
+files <- list.files(pattern="*.csv")
+df2016_2 <- do.call(rbind, lapply(files, fread))
+
+setwd(params$data_2017)
+files <- list.files(pattern="*.csv")
+df2017 <- do.call(rbind, lapply(files, fread))
+
+setwd(params$data_2018)
+files <- list.files(pattern="*.csv")
+df2018 <- do.call(rbind, lapply(files, fread))
+
+setwd(params$data)
+cp<- fread("laposte.csv",header=T,sep=";")
+region<- read.csv("region.csv",header=T, fileEncoding = "UTF-8")
+cp_anciens <- fread("communes_nv.csv",header=T,sep=";")
+cp_communes<- fread("fichier_communes.csv",header=T,sep=";")
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Les différences de structure ressortent alors facilement : on a `r ncol(df2016_1)` colonnes pour les données en région en 2016,`r ncol(df2016_2)` pour l'Ile-de-France, `r ncol(df2017)` pour l'année 2017 et `r ncol(df2018)` pour l'année 2018.
+De même, les noms de variables sont différents, comme on peut le voir entre 2017 et 2018.
+
+* Variables en 2017 :
+
+```{r echo=FALSE}
+#Variables 2017
+
+print(names(df2017))
+
+```
+
+* Variables en 2018 :
+
+```{r echo=FALSE}
+#Variables 2017
+
+print(names(df2018))
+
+```
+### Pré-traitements
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nous allons maintenant sélectionner dans chacun de ces quatre jeux de données les variables qui nous intéressent, renommer les colonnes pour qu'ils aient exactement la même structure, puis les regrouper en un seul jeu de données :
+```{r include=TRUE}
+#Exemple de traitement pour l'année 2017
+
+df2017_1 <- "Select DEPCOM_red,CODEPOSTAL_red, NUMVOIE_red, INDREP_red, TYPVOIE_red, 
+NOMVOIE_red, NUMAPPT_red,ETAGE_red, BAT_red, LIEUDIT_red,QPV_red,origine_red ,
+TYPECONST_red, nbpiece_red, surfhab_red, construct_red,CONV_red,SRU_ALINEA_red,
+DPEENERGIE_red from df2017 "
+df2017_1 <- as.data.frame(sqldf(df2017_1))
+df2017_1$annee <- "2017"
+df2017_1<-df2017_1 %>% dplyr::rename("code_INSEE"=1,"code_postal"=2,"numero_de_voie"=3,
+"repetition_nmr"=4,"type_de_voie"=5,"nom_de_voie"=6,"numero_appartement"=7,"etage"=8,
+"batiment"=9,"lieu_dit"= 10,"quartier_prioritaire_o_n"=11,"origine_du_patrimoine"=12,
+"type_de_construction"= 13,"nombre_de_pieces"=14,"surface_habitable"=15,
+"annee_achevement_construction"=16,"conventionne_APL"=17,"code_commune_SRU"=18,
+"consommation_energie"=19)
+```
+
+```{r include=FALSE}
+#Traitement des autres jeux de données
+df2016_11 <- "Select DEPCOM_red, CODEPOSTAL_red, NUMVOIE_red, INDREP_red, TYPVOIE_red, NOMVOIE_red, NUMAPPT_red, ETAGE_red, BAT_red, LIEUDIT_red, QPV_red, ORIGINE_red, TYPECONST_red, NBPIECE_red, SURFHAB_red, CONSTRUCT_red,CONV_red,SRU_ALINEA_red,DPEENERGIE_red from df2016_1 "
+df2016_11 <- as.data.frame(sqldf(df2016_11))
+
+df2016_21 <- "Select DEPCOM_red,CODEPOSTAL_red, NUMVOIE_red, INDREP_red, TYPVOIE_red, NOMVOIE_red, NUMAPPT_red, ETAGE_red,BAT_red, LIEUDIT_red,QPV_red,ORIGINE_red, TYPECONST_red, NBPIECE_red, SURFHAB_red, CONSTRUCT_red,CONV_red,SRU_ALINEA_red,DPEENERGIE_red from df2016_2 "
+df2016_21 <- as.data.frame(sqldf(df2016_21))
+
+df2016<-rbind(df2016_11,df2016_21)
+df2016$annee <- "2016"
+df2016 <- df2016 %>% dplyr::rename("code_INSEE" = 1,"code_postal"=2, "numero_de_voie" = 3, "repetition_nmr" = 4,"type_de_voie" = 5, "nom_de_voie" = 6, "numero_appartement" = 7, "etage" =8, "batiment" = 9, "lieu_dit" = 10,"quartier_prioritaire_o_n" = 11, "origine_du_patrimoine"=12, "type_de_construction" = 13, "nombre_de_pieces" = 14, "surface_habitable" = 15,"annee_achevement_construction" = 16,"conventionne_APL"=17,"code_commune_SRU"=18,"consommation_energie"=19)
+
+df2018_1 <- "Select DEPCOM, CODEPOSTAL, NUMVOIE, INDREP, TYPVOIE, NOMVOIE, NUMAPPT, ETAGE, BAT, LIEUDIT, QPV, ORIGINE, TYPECONST,
+NBPIECE, SURFHAB, CONSTRUCT,CONV,SRU_ALINEA,DPEENERGIE from df2018 "
+df2018_1 <- as.data.frame(sqldf(df2018_1))
+df2018_1$annee <- "2018"
+df2018_1<-df2018_1 %>% dplyr::rename("code_INSEE" = 1, "code_postal"=2,"numero_de_voie" = 3, "repetition_nmr" = 4, "type_de_voie" = 5, "nom_de_voie" = 6,"numero_appartement" = 7, "etage" = 8, "batiment" = 9, "lieu_dit" = 10,"quartier_prioritaire_o_n" = 11,"origine_du_patrimoine"=12, "type_de_construction" = 13, "nombre_de_pieces" = 14, "surface_habitable" = 15,"annee_achevement_construction" = 16,"conventionne_APL"=17,"code_commune_SRU"=18,"consommation_energie"=19)
+
+#Agrégation des trois datasets
+df<-rbind(df2016,df2017_1,df2018_1)
+
+#Nettoyage de l'environnement
+rm(df2018_1,df2017_1,df2016,df2016_11,df2016_21,df2017 ,df2018,df2016_1,df2016_2)
+
+#Changement du format et adaptation à la suite du script
+df_agrege<-df
+rm(df)
+
+#Création d'une variable adresse
+df_agrege$adresse<-paste(df_agrege$code_INSEE, df_agrege$code_postal,df_agrege$commune,df_agrege$numero_de_voie,
+                         df_agrege$repetition_nmr,df_agrege$type_de_voie,df_agrege$nom_de_voie,df_agrege$batiment,df_agrege$lieu_dit, sep=" ")
+
+#Application des règles de la documentation
+df_agrege$surface_habitable <- ifelse(df_agrege$surface_habitable == 0, "",df_agrege$surface_habitable)
+```
+
+## Nettoyage des données
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Maintenant que nos données sont réunies en un seul jeu de données homogènes, nous allons pouvoir les analyser et vérifier leur cohérence avant de les agréger. Nous pouvons alors observer que la variable étage est très mal renseignée, certaines de ces modalités étant mal formatées ou incompréhensibles. 
+
+```{r echo=FALSE}
+#Affichage des différentes modalités
+df_agrege$etage<-as.factor(as.numeric(df_agrege$etage))
+print(levels(df_agrege$etage))
+df_agrege$etage<-as.character(df_agrege$etage)
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nous allons donc les nettoyer manuellement, en corrigeant toutes les modalités mal formatées et en supprimant celles qui ne sont pas interprétables par des NA.
+
+```{r include=TRUE}
+rdc <-c("00","RC","RD","Rd","CO","rd","rc","RJ","Pa","Pl","R.","PA","A","ar","0.","RB",
+        "RH","J","RG","0+","DC","OO","D0","G0","C0","0E","0G",'0G',"0M","M0","0D")
+etage1 <- c("01","1e","1D","1G","1+","1E","1F","1/","1A","D1","G1","C1","A1","B1","1C",
+            "SS","R1","1-","1è","S1","1°","-1")
+etage2 <- c("2G","2D","2E","2e","2F","2*","2+","2A",".2","2C","C2","G2","D2","A2","B2",
+            "D2","2-","2°","2è","-2")
+etage3 <- c("03","3G","3D","3*","3e","/3","3+",'3E',"3A","D3","G3","C3","A3","B3","3M",
+            "3-","3°","3è","-3")
+etage4 <- c("04","4G","4D","4*","4e","/4","4+",'4E',"4A","D4","G4","C4","A4","B4","4M",
+            "4°","4è","-4")
+etage5 <- c("05","5G","5D","5*","5e","/5","5+",'5E',"5A","D5","G5","C5","A5","B5","5M",
+            "5°","5è")
+etage6 <- c("06","6G","6D","6*","6e","/6","6+",'6E',"6A","D6","G6","C6","A6","B6","6M",
+            "6°")
+etage7 <- c("07","7G","7D","7*","7e","/7","7+",'7E',"7A","D7","G7","C7","A7","B7","7M",
+            "7°","7-")
+etage8 <- c("08","8G","8D","8*","8e","/8","8+",'8E',"8A","D8","G8","C8","A8","B8","8M")
+etage9 <- c("09","9G","9D","9*","9e","/9","9+",'9E',"9A","D9","G9","C9","A9","B9","9M")
+N.A<- c("Pl","NR","XX","NN","CG","CD","MD","MG","<NA>","ES","In","nc","n.","MB","fa")
+
+df_agrege$etage <- ifelse(df_agrege$etage %in% rdc,"0",
+                    ifelse(df_agrege$etage %in% etage1,"1",
+                     ifelse(df_agrege$etage %in% etage2,"2", 
+                      ifelse(df_agrege$etage %in% etage3,"3",
+                       ifelse(df_agrege$etage %in% etage4,"4",
+                        ifelse(df_agrege$etage %in% etage5,"5",
+                         ifelse(df_agrege$etage %in% etage6,"6",
+                          ifelse(df_agrege$etage %in% N.A,"",
+                           ifelse(df_agrege$etage %in% etage7,"7", 
+                            ifelse(df_agrege$etage %in% etage8,"8",
+                             ifelse(df_agrege$etage %in% etage9,"9",df_agrege$etage
+                             )))))))))))
+
+
+```
+
+## Aggrégation des données
+
+### Création de variables d'intervalles de valeurs
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Notre objectif et maintenant de synthétiser par ville notre population de logements. Pour cela, nous allons créer des variables catégorielles pour nos variables numériques en associant une valeur à une tranche de valeurs. Voilà pour exemple le traitement de la variable construction : 
+
+```{r include=FALSE}
+#Nettoyage du dataframe
+df_agrege$etage <-as.numeric(as.character(df_agrege$etage))
+df_analyse <- df_agrege[,c(1,2,8, 11:21)]
+rm(df_agrege)
+```
+
+```{r include=TRUE}
+#Exemple de création de variable agrégée par intervalles
+df_analyse$annee_achevement_construction_cl<-cut(df_analyse$annee_achevement_construction,
+                                                 c(1090,1900,1950,1970,1990,2010,2017), 
+                                                 include.lowest = TRUE,
+                                                 labels = c("<1901","1901-1950",
+                                                            "1951-1970","1971-1990",
+                                                            "1991-2010","2011-2017"))
+```
+
+```{r include=FALSE}
+#Création de colonnes agrégées par intervalle
+df_analyse$nombre_de_pieces_cl <- cut(df_analyse$nombre_de_pieces,
+                                      c(0,2,3,4,10), 
+                                      include.lowest = TRUE,
+                                      labels = c("1", "2", "3", "4+"))
+df_analyse$surface_habitable_cl <- cut(df_analyse$surface_habitable,
+                                       c(7,15,30,60,90,500), 
+                                       include.lowest = TRUE,
+                                       labels = c("<16", "16-30", "31-60","61-90", "91+"))
+```
+
+### Aggrégation des variables nombre de logement et etage au niveau batiment
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nous voudrions maintenant associer à chaque adresse le nombre d'étages du batiment et le nombre de logements dans le batiment. Mais étant donné la volumétrie des données, le regroupement par adresse épuisait la mémoire tampon. Nous avons donc associé un identifiant numérique à chaque chaine de caractère adresse différente, pour pouvoir ensuite  synthétiser nos variables puis les rattacher au dataset : 
+
+```{r include=TRUE}
+#Création d'un référentiel adresse
+referentiel_adresse <- df_analyse %>%
+  select(adresse)%>%
+  distinct() %>% dplyr::mutate(id_adresse = row_number())
+
+#Attachement d'un id adresse au dataframe
+df_analyse <-dplyr::inner_join(referentiel_adresse,df_analyse,by='adresse')
+
+#CRéation des valeurs agrégées étage max et nombre de logements par batiment
+synt_bat<- df_analyse %>%
+  group_by(annee,id_adresse)%>%
+  dplyr::summarise(nbr_etages_batiment = max(etage, na.rm = T),
+                   nbr_logements_batiment=dplyr::n() )
+
+#Attachement des variables synthétiques au dataset
+df_analyse <-dplyr::inner_join(df_analyse,synt_bat,by=c('annee','id_adresse'))
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Mais en observant la répartition des batiments en nombre d'étages, nous nous sommes aperçus que nous avions des valeurs aberrantes. En effet, la plus haute structure habitée en France fait 48 étages [selon wikipédia](https://fr.wikipedia.org/wiki/Liste_des_gratte-ciels_et_IGH_en_France). Pourtant nous avons ici un certain nombre de logements situés entre le 49ème et le 99ème étage.
+
+```{r echo=FALSE}
+#Affichage des valeurs du nombre d'étages
+df_analyse$etage<-as.factor(as.numeric(df_analyse$etage))
+table(df_analyse$etage)
+df_analyse$etage<-as.numeric(as.character(df_analyse$etage))
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;On peut observer que la fréquence du nombre d'étages des batiments décroit régulièrement jusqu'à 25 étages, puis remonte de façon importante. Etant donné le doute que nous avons sur la qualité de ces données, nous allons faire le choix de ne garder que les données jusqu'à 25 étages. Il faudra garder en tête ce biais pour nos analyses futures.
+
+```{r include=TRUE}
+#Suppression de toutes les valeurs inférieures à 0 et supérieures à 25
+df_analyse$nbr_etages_batiment<- ifelse(df_analyse$nbr_etages_batiment=="-Inf","null",
+                                  ifelse(df_analyse$nbr_etages_batiment>25,"null",
+                                   ifelse(df_analyse$nbr_etages_batiment<0,"null",
+                                    df_analyse$nbr_etages_batiment)))
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Une fois ces données fiabilisées, nous pouvons créer des variables catégorielles pour les valeurs hauteurs de batiments et nombre de logements par batiment.
+
+```{r include=FALSE}
+#Création de la variable catégorielle de hauteur des batiments en étage
+df_analyse$nbr_etages_batiment<- as.numeric(df_analyse$nbr_etages_batiment)
+df_analyse$nbr_etages_batiment_cl <- cut(df_analyse$nbr_etages_batiment,
+                                       c(-1,1,4,10,25), 
+                                       include.lowest = TRUE,
+                                       labels = c("<2","2-4", "5-10", "11-25"))
+
+#Création de la variable catégorielle de nombre de logements par batiment
+df_analyse$nbr_logements_batiment<- as.numeric(df_analyse$nbr_logements_batiment)
+df_analyse$nbr_logements_batiment_cl <- cut(df_analyse$nbr_logements_batiment,
+                                         c(0,4,10,25,100,4000), 
+                                         include.lowest = TRUE,
+                                         labels = c("<5", "5-10", "11-25","25-100","101+"))
+```
+
+### Aggrégation des variables au niveau commune
+
+#### Pour les variables quantitatives
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nous choisissons pour aggréger les variables numériques un indicateur de moyenne. Si nous avons des valeurs aberrantes dans la suite de l'analyse, nous pourrons éventuellement les remplacer par une valeur médiane, moins parlante pour l'utilisateur mais moins sensible aux valeurs extrêmes.
+
+```{r include=TRUE}
+#Création d'un dataframe syntétisant les variables numériques par ville
+synt_ville<- df_analyse %>%
+  group_by(annee,code_INSEE)%>%
+  dplyr::summarise(nbr_logements_ville=n(),
+                   moyenne_nombre_de_pieces_logement=mean(nombre_de_pieces, na.rm = T),
+                   moyenne_surface_habitable_logement=mean(surface_habitable, na.rm = T),
+                   moyenne_annee_achevement_construction=mean(annee_achevement_construction,
+                                                              na.rm = T))
+```
+
+#### Pour les variables qualitatives
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nous allons pour chaque variable qualitative créer une data frame distincte ventilant les différentes modalités de la variable par colonne, avec en ligne les fréquences de la modalité. Affichons l'agrégation de la variable quartier prioritaire pour exemple. 
+
+```{r include=TRUE, echo=TRUE}
+#Calcul des effevtifs par année, ville et modalité pour la variable
+synt_quartier_prioritaire_o_n<- df_analyse %>%
+  group_by(annee,
+           code_INSEE,
+           quartier_prioritaire_o_n)%>%
+  dplyr::summarise(nbr_logements_quartier_prioritaire = n())
+
+#Ventilation de la variable en format large pour ne garder qu'une seule ligne par ville
+synt_quartier_prioritaire_o_n <-synt_quartier_prioritaire_o_n %>%
+  spread(key = quartier_prioritaire_o_n,
+         value= nbr_logements_quartier_prioritaire, convert =T )
+
+#Affichage des valeurs
+kable(head(synt_quartier_prioritaire_o_n))
+
+#Renommage du nom des colonnes pour faciliter la lecture
+synt_quartier_prioritaire_o_n<-synt_quartier_prioritaire_o_n%>%
+  dplyr::rename("QVP_nbr_logements_quartier_prioritaire" = 3,
+                "QVP_nbr_logements_quartier_non_prioritaire" = 4)
+
+```
+
+Nous récupérons ainsi ce format de donnée pour chaque variable :
+```{r echo=FALSE}
+kable(head(synt_quartier_prioritaire_o_n))
+```
+
+```{r include=FALSE}
+#Ventilation variable origine patrimoine
+synt_origine_du_patrimoine<- df_analyse %>% group_by(annee,
+                                                     code_INSEE,
+                                                     origine_du_patrimoine)%>%dplyr::summarise(nbr_logements_origine_du_patrimoine = n())
+
+synt_origine_du_patrimoine <-synt_origine_du_patrimoine %>% spread(key = origine_du_patrimoine,
+                                                                   value= nbr_logements_origine_du_patrimoine, convert =T )
+
+synt_origine_du_patrimoine<-synt_origine_du_patrimoine%>% dplyr::rename("origine_nbr_Construction_par_organisme" = 3,
+                                                                        "origine_nbr_Acquisition_avec_travaux" = 4,
+                                                                        "origine_nbr_Acquisition_sans_travaux" = 5,
+                                                                        "origine_nbr_VEFA" = 6)
+#Ventilation variable type de construction
+synt_type_de_construction<- df_analyse %>% group_by(annee,
+                                                    code_INSEE,
+                                                    type_de_construction)%>%dplyr::summarise(nbr_type_de_construction = n())
+
+synt_type_de_construction <-synt_type_de_construction %>% spread(key = type_de_construction,
+                                                                 value= nbr_type_de_construction, convert =T )
+
+synt_type_de_construction<-synt_type_de_construction%>% dplyr::rename("type_nbr_logements_collectifs" = 3,
+                                                                      "type_nbr_logements_individuels" = 4,
+                                                                      "type_nbr_logements_etudiants" = 5)
+#Ventilation variable convention apl
+synt_conventionne_APL<- df_analyse %>% group_by(annee,
+                                                code_INSEE,
+                                                conventionne_APL)%>%dplyr::summarise(nbr_conventionne_APL = n())
+
+synt_conventionne_APL <-synt_conventionne_APL %>% spread(key = conventionne_APL,
+                                                         value= nbr_conventionne_APL, convert =T )
+
+synt_conventionne_APL<-synt_conventionne_APL%>% dplyr::rename("APL_nbr_logements_conventionnes" = 3,
+                                                              "APL_nbr_logements_non_conventionnes" = 4,
+                                                              "APL_nbr_logements_NA" = 5)
+#Ventilation consommation d'energie
+synt_consommation_energie <- df_analyse %>% group_by(annee,
+                                                     code_INSEE,
+                                                     consommation_energie)%>%dplyr::summarise(nbr_consommation_energie = n())
+
+synt_consommation_energie <-synt_consommation_energie %>% spread(key = consommation_energie,
+                                                                 value= nbr_consommation_energie, convert =T )
+
+synt_consommation_energie<-synt_consommation_energie%>% dplyr::rename("consommation_energie_nbr_logements_NA" = 3,
+                                                              "consommation_energie_nbr_logements_classe_A" = 4,
+                                                              "consommation_energie_nbr_logements_classe_B" = 5,
+                                                              "consommation_energie_nbr_logements_classe_C" = 6,
+                                                              "consommation_energie_nbr_logements_classe_D" = 7,
+                                                              "consommation_energie_nbr_logements_classe_E" = 8,
+                                                              "consommation_energie_nbr_logements_classe_F" = 9,
+                                                              "consommation_energie_nbr_logements_classe_G" = 10)
+
+#Ventilation consommation d'energie
+synt_annee_achevement_construction_cl<-df_analyse %>% group_by(annee,
+                                                               code_INSEE,
+                                                               annee_achevement_construction_cl)%>%dplyr::summarise(nbr_annee_achevement_construction_cl = n())
+
+synt_annee_achevement_construction_cl<-synt_annee_achevement_construction_cl %>% spread(key = annee_achevement_construction_cl,
+                                                                                         value= nbr_annee_achevement_construction_cl, convert =T )
+
+synt_annee_achevement_construction_cl<-synt_annee_achevement_construction_cl%>% dplyr::rename("classe_annee_construction_nbr_logements_NA" = 3,
+                                                                                              "classe_annee_construction_nbr_logements_avant_1900" = 4,
+                                                                                              "classe_annee_construction_nbr_logements_1901_1950" = 5,
+                                                                                              "classe_annee_construction_nbr_logements_1951_1970" = 6,
+                                                                                              "classe_annee_construction_nbr_logements_1971_1990" = 7,
+                                                                                              "classe_annee_construction_nbr_logements_1991_2010" = 8,
+                                                                                              "classe_annee_construction_nbr_logements_2011_2017" = 9)
+#Ventilation nombre de pieces
+synt_nombre_de_pieces_cl <- df_analyse %>% group_by(annee,
+                                                    code_INSEE,
+                                                    nombre_de_pieces_cl)%>%dplyr::summarise(nbr_nombre_de_pieces_cl = n())
+
+synt_nombre_de_pieces_cl <-synt_nombre_de_pieces_cl %>% spread(key = nombre_de_pieces_cl,
+                                                               value= nbr_nombre_de_pieces_cl, convert =T )
+
+synt_nombre_de_pieces_cl<-synt_nombre_de_pieces_cl%>% dplyr::rename("nombre_de_pieces_nbr_logements_1_piece" = 3,
+                                                                    "nombre_de_pieces_nbr_logements_2_pieces" = 4,
+                                                                    "nombre_de_pieces_nbr_logements_3_pieces" = 5,
+                                                                    "nombre_de_pieces_nbr_logements_4_pieces_et_plus" = 6)
+#Ventilation surface habitable
+synt_surface_habitable_cl <- df_analyse %>% group_by(annee,
+                                                    code_INSEE,
+                                                    surface_habitable_cl)%>%dplyr::summarise(nbr_surface_habitable_cl = n())
+
+synt_surface_habitable_cl <-synt_surface_habitable_cl %>% spread(key = surface_habitable_cl,
+                                                               value= nbr_surface_habitable_cl, convert =T )
+
+synt_surface_habitable_cl<-synt_surface_habitable_cl%>% dplyr::rename("surface_habitable_nbr_logements_moins_de_15m2" = 3,
+                                                                      "surface_habitable_nbr_logements_16_30m2" = 4,
+                                                                      "surface_habitable_nbr_logements_31_60m2" = 5,
+                                                                      "surface_habitable_nbr_logements_61_90m2" = 6,
+                                                                      "surface_habitable_nbr_logements_plus_de_90m2" = 7)
+
+#Ventilation nombre d'étages des batiments
+synt_nbr_etages_batiment_cl <- df_analyse %>% select(annee,code_INSEE,id_adresse,nbr_etages_batiment_cl)%>%distinct()
+
+synt_nbr_etages_batiment_cl <- sqldf("Select count(*),
+                                             annee,
+                                             code_INSEE,
+                                             nbr_etages_batiment_cl 
+                                      from synt_nbr_etages_batiment_cl 
+                                      group by annee,code_INSEE,nbr_etages_batiment_cl")
+
+
+synt_nbr_etages_batiment_cl <-synt_nbr_etages_batiment_cl %>% spread(key = nbr_etages_batiment_cl,
+                                                                 value= "count(*)", convert =T ) %>% select(1:3,5,6,4,7)
+
+synt_nbr_etages_batiment_cl<-synt_nbr_etages_batiment_cl%>% dplyr::rename("etage_nbr_batiments_0_1_etages" = 3,
+                                                                          "etage_nbr_batiments_2_4_etages" = 4,
+                                                                          "etage_nbr_batiments_5_10_etages" = 5,
+                                                                          "etage_nbr_batiments_11_25_etages" = 6,
+                                                                          "etage_nbr_batiments_NA_etages" = 7)
+#Ventilation nombre de logements par batiments
+synt_nbr_logements_batiment_cl <- df_analyse %>% select(annee,code_INSEE,id_adresse,nbr_logements_batiment_cl)%>%distinct()
+
+synt_nbr_logements_batiment_cl <- sqldf("Select count(*),
+                                                annee,
+                                                code_INSEE,
+                                                nbr_logements_batiment_cl 
+                                         from synt_nbr_logements_batiment_cl 
+                                         group by annee,code_INSEE,nbr_logements_batiment_cl")
+
+
+synt_nbr_logements_batiment_cl <-synt_nbr_logements_batiment_cl %>% spread(key = nbr_logements_batiment_cl,
+                                                                     value= "count(*)", convert =T ) 
+
+
+synt_nbr_logements_batiment_cl<-synt_nbr_logements_batiment_cl%>% dplyr::rename("logement_nbr_batiments_1_4_logements" = 3,
+                                                                                "logement_nbr_batiments_5_10_logements" = 4,
+                                                                                "logement_nbr_batiments_11_25_logements" = 5,
+                                                                                "logement_nbr_batiments_26_100_logements" = 6,
+                                                                                "logement_nbr_batiments_plus_de_100_logements" = 7)
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;On notera que nous retirons la variable code_commune_SRU qui présente de grosses incohérences. En effet tous les logements d'une ville devraient avoir le même classement, hors nous pouvons voir ici que ce n'est pas le cas. Cette alerte supplémentaire sur la qualité des données d'origine nous montre d'autant plus que nous devrons les interpréter avec précaution.
+```{r echo=FALSE}
+#Ventilation variable alinea SRU - Impossible à intégrer données non cohérentes
+synt_code_commune_SRU<- df_analyse %>% group_by(annee,
+                                                code_INSEE,
+                                                code_commune_SRU)%>%dplyr::summarise(nbr_code_commune_SRU = n())
+
+synt_code_commune_SRU <-synt_code_commune_SRU %>% spread(key = code_commune_SRU,
+                                                         value= nbr_code_commune_SRU, convert =T )
+kable(head(synt_code_commune_SRU))
+```
+
+## Mise en forme
+
+### Agrégation de toutes nos variables
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nous pouvons maintenant rassembler toutes nos données dans un seul dataframe et remplacer les valeurs null par 0 pour toutes les modalités n'ayant pas d'effectif dans une ville :
+
+```{r include=TRUE}
+#Jointure et traitement de tous les df de variables
+df_agrege <- list(synt_ville,
+                  synt_quartier_prioritaire_o_n,
+                  synt_origine_du_patrimoine,
+                  synt_type_de_construction,
+                  synt_conventionne_APL,
+                  synt_consommation_energie,
+                  synt_annee_achevement_construction_cl,
+                  synt_nombre_de_pieces_cl,
+                  synt_surface_habitable_cl,
+                  synt_nbr_etages_batiment_cl,
+                  synt_nbr_logements_batiment_cl) %>%
+  reduce(inner_join, by = c('annee','code_INSEE'))
+
+#Remplacement des valeurs null par 0
+df_agrege[is.na(df_agrege)] <- 0
+```
+
+### Enrichissement de nos données agrégées
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nos données sont maintenant regroupées ensemble mais sont encore inexploitables en terme d'analyse. Nous devons maintenant rajouter les noms des communes qui correspondent aux codes INSEE, et les granularités département et région pour chaque ville, afin de pouvoir en faire une analyse globale.
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Mais étant donné que certaines communes ont changé de nom depuis 2016, nous nous sommes aperçus que nous perdions des communes en les mettant en relation avec les codes postaux. Nous avons donc dû dans un premier temps créer un référentiel code postal actuel en utilisant le référentiel des codes postaux ainsi que celui des nouvelles communes associées aux anciennes fournies par La Poste en open data.
+
+```{r}
+cp<-cp %>% select(1)%>%dplyr::rename(code_INSEE=1)%>%distinct()
+cp$code_INSEE <- ifelse(str_sub(cp$code_INSEE, 1, 1)=="0",str_sub(cp$code_INSEE, 2, 5),cp$code_INSEE)
+
+cp_anciens<-cp_anciens %>% select(2,4)%>%dplyr::rename(code_INSEE_n=1,code_INSEE=2)%>%distinct()
+cp_anciens$code_INSEE <- as.character(cp_anciens$code_INSEE)
+```
+
+Nous pouvons maintenant les attacher à notre jeu de données en conservant l'ensemble des informations à chaque jointure :
+```{r include=TRUE}
+
+df_agrege <-dplyr::right_join(cp_anciens,df_agrege,by='code_INSEE')
+
+df_agrege <-dplyr::right_join(cp,df_agrege,by='code_INSEE')
+
+```
+
+Il ne nous reste ensuite plus qu'à attribuer en code INSEE à la commune le nouveau code INSEE si il existe, et l'ancien dans l'autre cas :
+```{r include=TRUE}
+df_agrege$code_INSEE <- ifelse(is.na(df_agrege$code_INSEE_n),
+                                df_agrege$code_INSEE,
+                                df_agrege$code_INSEE <-df_agrege$code_INSEE_n)
+```
+
+Nous pouvons maintenant attacher à chaque numéro INSEE un nom de commune, de département et de région grace à un fichier trouvé en open data.
+
+```{r include=TRUE}
+#Récupération des noms de communes, code département et région 
+cp_communes<-cp_communes%>%select(1:4,11)%>%dplyr::rename("code_INSEE"=1,"nom_commune"=2,
+                                                          "departement"=3,"code_region"=4,
+                                                          "tranche_unité_urbaine"=5)
+cp_communes$code_INSEE <- ifelse(str_sub(cp_communes$code_INSEE, 1, 1)=="0",
+                                 str_sub(cp_communes$code_INSEE, 2, 5),
+                                 cp_communes$code_INSEE)
+df_agrege<- dplyr::inner_join(cp_communes,df_agrege,by='code_INSEE')
+
+#Corespondance entre les codes département et région et leur nom
+region<-region %>% select(1,2,4)%>%dplyr::rename(departement=1)
+region$departement <- as.character(region$departement)
+df_agrege <-dplyr::inner_join(region,df_agrege,by='departement')
+```
+
+```{r include=FALSE}
+#Mise en forme
+df_origin <- df_agrege %>% select (9,6,3,1,2,4,5,7,10:59) %>%
+  dplyr::arrange(annee,regionName,departement,code_INSEE)
+#rm(df_agrege)
+```
+
+# Deuxième partie : Data Visualisation
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Les données étant nettoyées, nous nous retrouvons donc avec une dataframe comprenant une observation par code INSEE de chaque ville et par année pour chaque indicateur. Toutefois, en raison du grand nombre d'indicateurs disponibles, et par souci d'efficacité, nous travaillerons sur des agrégats de données réduites. C'est-à-dire que la dataframe sur laquelle nous travaillons est au format large, plusieurs colonnes correspondant à différentes modalités d'une même variable. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Toutefois, pour des raisons de commodité, le package ggplot préfère le travail sur un format long de données (entre autres pour des raisons de lisibilité). Toutefois, si nous convertissions toutes les variables à modalité au format long, R produirait un produit cartésien de toutes ces variables et nous nous retrouverions donc avec une dataframe inutilement longue et lourde avec laquelle il serait quasi impossible de travailler. Ainsi, pour rester parcimonieux dans nos analyses, nous n'utiliserons les variables à modalité que lorsque cela sera nécessaire.
+
+```{r include=FALSE}
+
+#Les erreurs de conversion ont fait que les codes postaux à 4 chiffres perdaient leur 0. Nous le rajoutons manuellement ici.
+#df_origin$Code_postal <- sprintf("%05d", df_origin$Code_postal)
+
+#unique(nchar(df_origin$Code_postal))
+
+#Nous créons ici les noms des colonnes dont nous aurons besoin à chaque fois, pour ne pas avoir à les répéter à chaque fois que l'on choisira de nouveaux indicateurs. Le préfixe gat_ vient de l'anglais "gather" et indique les colonnes que l'on rassemblera lorsqu'on s'intéressera à différents indicateurs
+gat_qvp <- c("QVP_nbr_logements_quartier_prioritaire", "QVP_nbr_logements_quartier_non_prioritaire")
+
+gat_origine <- c("origine_nbr_Acquisition_avec_travaux", "origine_nbr_Acquisition_sans_travaux", 
+                 "origine_nbr_Construction_par_organisme", "origine_nbr_VEFA")
+
+gat_type_logement <- c("type_nbr_logements_collectifs", "type_nbr_logements_individuels", "type_nbr_logements_etudiants")
+
+gat_energie <- c("consommation_energie_nbr_logements_NA", "consommation_energie_nbr_logements_classe_A",
+                 "consommation_energie_nbr_logements_classe_B", "consommation_energie_nbr_logements_classe_C",
+                 "consommation_energie_nbr_logements_classe_D", "consommation_energie_nbr_logements_classe_E",
+                 "consommation_energie_nbr_logements_classe_F", "consommation_energie_nbr_logements_classe_G")
+
+gat_construct <- c("classe_annee_construction_nbr_logements_NA", "classe_annee_construction_nbr_logements_avant_1900", 
+                   "classe_annee_construction_nbr_logements_1901_1950",  "classe_annee_construction_nbr_logements_1951_1970", 
+                   "classe_annee_construction_nbr_logements_1991_2010", "classe_annee_construction_nbr_logements_2011_2017")
+
+gat_pieces <- c("nombre_de_pieces_nbr_logements_1_piece", "nombre_de_pieces_nbr_logements_2_pieces",
+                "nombre_de_pieces_nbr_logements_3_pieces", "nombre_de_pieces_nbr_logements_4_pieces_et_plus")
+
+gat_surface <- c("surface_habitable_nbr_logements_moins_de_15m2", "surface_habitable_nbr_logements_16_30m2", 
+                       "surface_habitable_nbr_logements_31_60m2", "surface_habitable_nbr_logements_61_90m2",
+                       "surface_habitable_nbr_logements_plus_de_90m2")
+
+gat_etage <- c("etage_nbr_batiments_0_1_etages", "etage_nbr_batiments_2_4_etages", "etage_nbr_batiments_5_10_etages",
+               "etage_nbr_batiments_11_25_etages", "etage_nbr_batiments_NA_etages")
+
+gat_nbr_bat <- c("logement_nbr_batiments_1_4_logements", "logement_nbr_batiments_5_10_logements", "logement_nbr_batiments_11_25_logements",
+                 "logement_nbr_batiments_26_100_logements", "logement_nbr_batiments_plus_de_100_logements")
+
+cols_kept <- c("departmentName", "regionName", "nom_commune", "code_INSEE", "annee", "nbr_logements_ville",
+               "moyenne_nombre_de_pieces_logement", "moyenne_surface_habitable_logement", "moyenne_annee_achevement_construction")
+
+#Ici, nous créons la fonction que nous utiliserons pour sélectionner les données d'intérêt
+extract_columns <- function(data, desired_columns) {
+    desired_columns <- c(cols_kept, desired_columns)
+    extracted_data <- data %>%
+    select_(.dots = desired_columns)
+  return(extracted_data)
+}
+
+#Dont voici un exemple d'utilisation : df <- extract_columns(df_origin, gat_qvp)
+df <- df_origin %>%
+  select(cols_kept)
+
+```
+
+## L'évolution régionale du parc locatif
+
+### Evaluer la quantité de logements sociaux par région 
+
+Le jeu de données nettoyé peut être analysé sous plusieurs angles différents. Nous en choisirons deux : 
+
+* Les données continues : eg. Nombre de logements par villes, moyenne du nombre de pièces par logements, surface habitable moyenne...
+
+* Les données catégorielles : eg. Quartier prioritaire ou non, nombre de logements par catégories de surface...
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nous pouvons tout d'abord commencer par observer l'évolution du nombre de logements par région et par an. Nous pouvons représenter 2 données : Le nombre total de logements sociaux par région ainsi que le nombre moyen de logements sociaux par ville (pour des questions de simplicité, nous choisissons pour ce graphique les villes comme facteur de groupe qui sont plus simples à se représenter que les codes INSEE).
+
+```{r echo=FALSE}
+
+#Mise en facteur de la colonne annee
+if(is.character(df$annee)==FALSE){
+  df$annee <- factor(as.character(df$annee))
+}
+
+df %>%
+  group_by(regionName, annee) %>%
+  ggplot(aes(x = fct_rev(regionName), y = nbr_logements_ville, group = fct_rev(annee), fill = annee)) +
+  geom_bar(stat = "summary", fun.y = sum, position = "dodge") + 
+  coord_flip() + 
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect("#BDC4C7")) +
+  ggtitle("Nombre total de logements par Région\n") +
+  guides(fill=guide_legend(title="Année"))
+
+
+df %>%
+  group_by(regionName, annee, nom_commune) %>%
+  ggplot(aes(x = fct_rev(regionName), y = nbr_logements_ville, group = fct_rev(annee), fill = annee)) +
+  geom_bar(stat = "summary", fun.y = mean, position = "dodge") + 
+  coord_flip() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect("#BDC4C7")) +
+  ggtitle("Nombre moyen de logements par ville par Région\n") +
+  guides(fill=guide_legend(title="Année"))
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Le premier graphique est informatif quand au nombre total de logements dans chaque région. Toutefois, il pourrait être intéressant d'avoir les résultats de ce graphique ordonnés de la plus haute valeur vers la plus faible, afin de connaître les régions comprenant le plus de logement pour aboutir vers celles en ayant le moins et ainsi rendre ce graphique plus lisible. De même, nous pouvons questionner la pertinence de la séparation des départements d'outre-mer dont le faible nombre rend complexe la lisibilité. 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Le second graphique nous permet de voir la quantité moyenne de logements par ville pour chaque région. Ainsi, ce graphique nous renseigne sur la densité de logements moyenne dans les villes de chaque région.  Comme nous pouvons le voir, les données semblent avoir été correctement nettoyées pour la plupart des régions, mais nous nous trouvons face à des incohérences pour certains départements d'outre-mer. La Réunion cumulerait en effet en moyenne deux fois plus de logements par ville que l'Île de France, mais cela uniquement sur deux années. Des résultats moindres mais similaires apparaissent pour la Guadeloupe, la Guyane et la Martinique avec une baisse soudaine du nombre moyen de logements sociaux par ville en 2017. Enfin, Mayotte ne présenterait des données que sur 2018, et sur un volume tel qu'il n'est pas suffisant pour apparaître sur le graphique. C'est pourquoi nous avons décidé pour la suite d'aggréger les données des DOM-TOM en une seule catégorie. Nous espérons ainsi voir si une erreur lors de la saisie des données pour un DOM se serait reportée sur un autre DOM. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Concernant l'hexagone, l'Île de France dépasse toutes les autres régions sur le nombre de logements sociaux par ville de loin, avec environ `r round(mean(df$nbr_logements_ville[df$regionName == "Ile-de-France"]), 2)` logements sociaux par ville. Suit la région PACA qui possède le second plus grand parc de logements sociaux par ville, avec environ `r round(mean(df$nbr_logements_ville[df$regionName == "Provence-Alpes-Côte d'Azur"]), 2)` logements sociaux. Nous pouvons maintenant continuer notre analyse en améliorant la clarté des graphiques. Ici, nous allons donc regrouper les DOM sous un seul facteur, et nous trierons aussi les résultats du plus grand nombre de logements par le plus petit.
+
+```{r echo=FALSE}
+
+#Renommage des noms régionaux des DOM-TOM en un nom unique sur la df en cours et la df d'origine.
+df$regionName <- factor(df$regionName)
+df$regionName <- fct_collapse(df$regionName, 
+                      DOMTOM = c("Guadeloupe", "Guyane", "La Réunion", "Martinique", "Mayotte"))
+
+df_origin$regionName <- factor(df_origin$regionName)
+df_origin$regionName <- fct_collapse(df_origin$regionName, 
+                      DOMTOM = c("Guadeloupe", "Guyane", "La Réunion", "Martinique", "Mayotte"))
+
+df %>%
+  group_by(regionName, annee) %>%
+  mutate_at("nbr_logements_ville", sum, na.rm = TRUE) %>%
+  ggplot(aes(x = reorder(fct_rev(regionName), nbr_logements_ville), y = nbr_logements_ville, 
+             group = fct_rev(annee), fill = annee)) +
+  geom_bar(stat = "summary", fun.y = unique, position = "dodge") + 
+  coord_flip() +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect("#BDC4C7")) +
+  ggtitle("Nombre total de logements par Région\n") +
+  guides(fill=guide_legend(title="Année"))
+
+df %>%
+  group_by(regionName, annee, nom_commune) %>%
+  ggplot(aes(x = reorder(fct_rev(regionName), nbr_logements_ville), y = nbr_logements_ville, 
+             group = fct_rev(annee), fill = annee)) +
+  geom_bar(stat = "summary", fun.y = mean, position = "dodge") + 
+  coord_flip() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        panel.background = element_rect("#BDC4C7")) +
+  ggtitle("Nombre moyen de logements par ville par Région\n") +
+  guides(fill=guide_legend(title="Année"))
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;La combinaison des résultats pour les DOM-TOM nous permet d'avoir des résultats plus en lien avec le reste des régions françaises sur les deux graphiques. Toutefois, les incohérences que nous avions observées sur La Réunion sont trop importantes et impactent de manière significative les résultats des DOM-TOM. Ainsi, par souci de validité des données, nous supprimerons ces régions des futures analyses.
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Il aurait été toutefois intéressant que les données des DOM-TOM soient cohérentes, car les résultats apparents semblent montrer que bien que ces régions n'aient pas le plus grand parc social immobilier de France, elles en ont la plus grande densité après Paris. Cette conclusion implique tous DOM-TOM confondus, car il semblerait que Paris ait une plus faible concentration de logements sociaux que La Réunion. Toutefois, comme précisé plus haut, nous ne pourrons pas investiguer ces questions en raison de la mauvaise fiabilité des données dans le temps. Finalement, nous pouvons faire un graphique résumant les différences de nombre de logements sociaux par année en pourcentage, afin de mettre en valeur les régions ayant eu le plus grand pourcentage de développement de leur parc immobilier chaque année.
+
+```{r echo=FALSE}
+
+df <- df %>%
+  filter(regionName != "DOMTOM")
+
+df_origin <- df_origin %>%
+  filter(regionName != "DOMTOM")
+
+df %>%
+  dplyr::group_by(regionName, annee) %>%
+  dplyr::mutate_at("nbr_logements_ville", sum, na.rm = TRUE) %>%
+  arrange(regionName, nom_commune, annee) %>%
+  dplyr::group_by(regionName, nom_commune) %>%
+  dplyr::mutate(difference = ((nbr_logements_ville - lag(nbr_logements_ville))/lag(nbr_logements_ville))*100) %>%
+  filter(difference != 0|NA) %>%
+  {
+  ggplot(., aes(fct_rev(regionName), difference, group = fct_rev(annee), fill = annee)) + 
+    geom_text(aes(label = paste0(c(round(difference, digits = 2)), "%")), 
+              position = position_dodge(width = .9), size = 2.8, hjust = -0.03) +
+    geom_bar(stat = 'identity', position = 'dodge') +
+    coord_flip() +
+    xlab('') +
+    guides(fill=guide_legend(title="Année")) +
+    ggtitle("Evolution en % du nombre de logements par année\npar rapport à l'année précédente") +
+    scale_y_continuous(limits = c(0, round(max(.$difference)+max(.$difference)*0.1))) +
+    theme(axis.title.x=element_blank(),
+      plot.title = element_text(hjust = 0.5),
+      panel.background = element_rect("#BDC4C7"))
+  }
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sur ce graphique, on peut noter plusieurs indications concernant le développement du parc immobilier dans les différentes régions de France métropolitaine : Tout d'abord, la région avec le plus fort taux de développement immobilier est sans conteste la région Nouvelle-Aquitaine avec une augmentation de près de 5% de son parc immobilier en 2018, cela en dépit du fait qu'elle ne fasse pas partie des régions avec le moins de logements sociaux. Cela témoigne de la volonté d'investissement des élus locaux pour favoriser l'installation de nouveaux foyers dans leur région. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;A contrario, la région Bourgogne-Franche Comté a ralenti la progression de son développement immobilier social en 2018 en dépit du fait d'avoir déjà été la région ayant le moins investit en 2017. Si l'on compare avec le graphique ordonné de la quantité totale de logements par région, cette région est la 3ème région la moins équipée de France en termes de logements. L'Île de France elle semble poursuivre une progression constante de son parc immobilier chaque année, avec une hausse annuelle d'environ 1,6%. Dans l'ensemble, il paraît que quasiment toutes les régions cherchent à continuer vers la progression du nombre de logements sociaux disponibles. 
+
+### Croisement des données avec celles de la population par villes
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Pour réaliser cette partie, nous sommes allés récupérer les données de population recueillies par l'INSEE en 2016 et disponibles [ici](https://www.insee.fr/fr/statistiques/3677785?sommaire=3677855). Pour pouvoir joindre ces données à celles dont nous disposions avec celles de l'INSEE, nous avons du les joindre sur leur code INSEE, qui est celui sur lequel nous avons travaillé. Toutefois, le jeu de données de l'INSEE semblait s'être basé sur une granularité similaire sans pour autant utiliser le code INSEE de manière explicite. Nous avons donc reconstitué manuellement le code INSEE des villes en nous basant sur un fichier de correspondance disponible [ici](https://public.opendatasoft.com/explore/dataset/code-postal-code-insee-2015/export/). 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cela nous a permis de nous assurer que le code INSEE reconstitué manuellement correspondait bien strictement au code INSEE réel d'une ville. Le code nous ayant permis de réaliser cette correspondance peut quand à lui être retrouvé [ici](https://github.com/edaveau/DataVisCNAM/blob/master/city_population.R) et la dataframe qu'il produit est utilisée dans le code du graphique. La raison pour laquelle nous avons décidé d'ajouter cette information était afin d'obtenir le ratio de logements sociaux par rapport à la population de chaque ville pour les régions de France, notamment afin de voir si certaines régions étaient défavorisées par une trop faible proportion. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Il est aussi à noter que le jeu de données de l'INSEE est issu de 2016, ce qui implique que nous ne travaillerons que sur les données de la même année. Enfin, nous diviserons la population totale par le nombre moyen d'individus par foyers [2,31 en 2005](https://www.insee.fr/fr/statistiques/1280856) afin d'avoir le nombre moyen de logements sociaux par foyers.
+
+```{r echo=FALSE}
+
+setwd(params$data)
+city <- fread("~/dataviz/data/city_population.csv",colClasses = "character")
+
+colnames(city)[7] <- "pop_totale"
+
+df <- df %>%
+  filter(annee == "2016") %>%
+  dplyr::mutate(code_INSEE = as.numeric(code_INSEE)) %>%
+  dplyr::mutate(code_INSEE = sprintf("%05d", code_INSEE)) %>% 
+  dplyr::mutate(code_INSEE = as.character(code_INSEE))
+
+df <- left_join(df, city, by = c("code_INSEE" = "code_insee"))
+
+df %>%
+  select(cols_kept, pop_totale) %>%
+  dplyr::mutate(pop_totale = as.numeric(gsub(" ", "", pop_totale))/2.31) %>%
+  dplyr::mutate(prop = nbr_logements_ville/pop_totale*100) %>%
+  dplyr::group_by(regionName) %>%
+  dplyr::mutate(mean_prop = mean(prop)) %>%
+  select(regionName, mean_prop) %>%
+  distinct() %>%
+  {
+  ggplot(., aes(x = regionName, y = mean_prop)) +
+    geom_bar(stat = "identity", fill = "#238A8DFF") +
+    coord_flip() +
+    xlab('') +
+    ylab("Nombre de logements pour 100 foyers") +
+    ggtitle("Proportion de logements sociaux\npar foyers et par régions en France") +
+    scale_y_continuous(labels = function(x) paste0(x, "%"),
+                       limits = c(0, round(max(.$mean_prop)+max(.$mean_prop)*0.1))) +
+    geom_text(aes(label = paste0(c(round(mean_prop, digits = 2)), "%")), 
+              position = position_dodge(width = .9), size = 2.8, hjust = -0.05) +
+    theme(axis.title.x=element_blank(),
+      plot.title = element_text(hjust = 0.5),
+      panel.background = element_rect("#BDC4C7"))
+  }
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ainsi, en 2016 la région proposant la plus grande proportion de logements sociaux pour sa population était l'Île de France, avec près de 15% de logements sociaux pour 100 foyers. La région Nouvelle-Aquitaine faisait elle partie des régions proposant le moins de logements pour 100 foyers, avec la région des Pays de la Loire. Ces chiffres peuvent ainsi être comparés avec l'augmentation du nombre de logements sociaux en 2017 et 2018, qui fut parmi les plus prononcées en particulier pour la région Nouvelle-Aquitaine. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ces chiffres nous permettent ainsi de dresser le constat suivant : Les régions ont une politique de développement de leur parc immobilier social inégale. Ces informations se recoupent partiellement avec l'offre de logements sociaux par rapport à la population totale, mais ce n'est pas le seul facteur explicatif. La région de Bourgogne-Franche Comté par exemple ne développant pas son parc locatif de manière générale, alors que celui-ci ne fait pas partie des plus importants de France (environ 7,4 logements pour 100 foyers). Afin de continuer l'investigation de nos données, nous allons maintenant nous intéresser aux caractéristiques des logements sociaux qui ont été construits.
+
+## Informations complémentaires
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Tout cela étant exposé, il nous reste toutefois plusieurs données que nous n'avons pas encore pris le temps d'exposer. Ainsi, bien que nous ne puissions être exhaustifs dans notre présentation, nous avons décidé de nous concentrer sur les variables qui nous semblent concentrer au mieux les enjeux socio-écologiques actuels qui découlent de la crise du logement.
+Ainsi, nous avons choisit d'utiliser 3 variables d'intérêt principales : La catégorie énergétique des logements, la surface habitable des logements ainsi que la zone d'implémentation des logements sociaux (quartier prioritaire ou non). 
+
+### Logements sociaux et classes énergétiques
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Plusieurs angles d'attaque sont possibles pour évaluer la performance énergétique des logements sociaux (évolution temporelle, répartition géographique des meilleures catégories des logements sociaux énergétiquement performants...). Celui que nous avons choisi concerne la répartition de ces logements en fonction de deux facteurs : Les régions et la catégorie énergétique. Notre but est ici de voir quelles régions font office de "bons élèves" en matière de logements ayant de bonnes performances énergétiques. Nous ne nous baserons ici que sur les données issues de 2018 pour éviter une possible redondance des données. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;En dépit des efforts gouvernementaux en la matière d'amélioration de la performance énergétiques des logements, il faudrait en effet d'avantage comparer ces données avec celles de 2008 pour avoir un résultat que l'on puisse espérer interprétable. La rénovation du parc immobilier social ne peut en effet se faire sur une période aussi courte au vu des travaux que cela peut impliquer parfois [voir le site infoenergie]( https://www.infoenergie-centre.org/wp-content/uploads/2016/05/guide-pratique-mener-renovation-energetique-en-copropriete-mars.pdf). De plus, ces travaux dépendent aussi de la concertation de plusieurs acteurs publics et privés, ce qui peut allonger la durée de négociation ou de réalisation des travaux. Au regard de tous ces freins, il nous a semblé pertinents de ne pas réaliser de comparaison sur des échelles de temps aussi réduites que 2016-2018.
+
+```{r echo=FALSE}
+
+df <- df_origin %>%
+  select(cols_kept, gat_energie)
+df$annee <- as.factor(df$annee)
+
+df <- gather(data = df, key = cat_energie, value = nbr_energie, gat_energie, factor_key = TRUE)
+df$cat_energie <- factor(df$cat_energie, levels = c("consommation_energie_nbr_logements_classe_A",
+                                                    "consommation_energie_nbr_logements_classe_B",
+                                                    "consommation_energie_nbr_logements_classe_C",
+                                                    "consommation_energie_nbr_logements_classe_D",
+                                                    "consommation_energie_nbr_logements_classe_E",
+                                                    "consommation_energie_nbr_logements_classe_F",
+                                                    "consommation_energie_nbr_logements_classe_G",
+                                                    "consommation_energie_nbr_logements_NA"))
+df <- df %>%
+  filter(annee == "2018") %>%
+  mutate(cat_energie = plyr::revalue(cat_energie, c("consommation_energie_nbr_logements_classe_A" = "A",
+                                                    "consommation_energie_nbr_logements_classe_B" = "B",
+                                                    "consommation_energie_nbr_logements_classe_C" = "C",
+                                                    "consommation_energie_nbr_logements_classe_D" = "D",
+                                                    "consommation_energie_nbr_logements_classe_E" = "E",
+                                                    "consommation_energie_nbr_logements_classe_F" = "F",
+                                                    "consommation_energie_nbr_logements_classe_G" = "G",
+                                                    "consommation_energie_nbr_logements_NA" = "Inconnu"))) 
+df %>%
+  ggplot(aes(x = fct_rev(regionName), y = nbr_energie, group = cat_energie, fill = fct_rev(cat_energie))) +
+    geom_bar(position = "fill", stat = "identity") +
+    coord_flip() +
+    scale_fill_viridis_d() +
+    theme(axis.title.x=element_blank(),
+         axis.title.y=element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.background = element_rect("#BDC4C7")) +
+    ggtitle("Proportion de logements sociaux\npar catégorie énergétique") +
+    guides(fill=guide_legend(title="Catégorie", reverse = TRUE)) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    geom_hline(aes(yintercept = 0.5), size = 1, color = "black", linetype = "dashed")
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ces données nous permettent de voir plusieurs choses. Tout d'abord, plusieurs régions n'ont pas pu renseigner correctement la classe énergétique de leurs logements, certaines n'ayant pas de données sur plus de 20% de leurs logements sociaux. Ce chiffre est très impressionnant car cela signifie par exemple que l'on ignore la classe énergétique de près d'un quart des logements sociaux dans la région PACA par exemple. Cela est d'autant plus important qu'il implique que toutes les conclusions que nous apporterons devront être tempérées par cette inconnue. En l'absence d'informations complémentaires, nous assumerons que les erreurs de mesures se sont réparties de manière équitable sur les autres niveaux de la catégorie énergétique. Nous en proposons ci-dessous une version ne prenant pas en compte les logements dont la catégorie est inconnue :
+
+```{r echo=FALSE}
+
+df %>%
+  filter(cat_energie != "Inconnu") %>%
+  ggplot(aes(x = fct_rev(regionName), y = nbr_energie, group = cat_energie, fill = fct_rev(cat_energie))) +
+    geom_bar(position = "fill", stat = "identity") +
+    coord_flip() +
+    scale_fill_viridis_d() +
+    theme(axis.title.x=element_blank(),
+         axis.title.y=element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.background = element_rect("#BDC4C7")) +
+    ggtitle("Proportion de logements sociaux\npar catégorie énergétique") +
+    guides(fill=guide_legend(title="Catégorie", reverse = TRUE)) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    geom_hline(aes(yintercept = 0.5), size = 1, color = "black", linetype = "dashed") +
+    geom_hline(aes(yintercept = 0.25), size = 0.7, color = "black", linetype = "dotted") +
+    geom_hline(aes(yintercept = 0.75), size = 0.7, color = "black", linetype = "dotted")
+
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;En assumant que les erreurs soient équitablement distribuées, ce graphique nous présente des données encourageantes concernant la performance énergétique des logements sociaux en France. La répartition des "passoires énergétiques" (logements de catégorie énergétique F et G) est en effet devenue extrêmement faible, en particulier en Bretagne, dans les Pays de la Loire et en Nouvelle-Aquitaine. Toutefois, environ la moitié des logements sociaux en France sont compris entre les catégories G et D si l'on considère toutes les régions, ce qui indique le travail restant à faire afin d'améliorer la qualité de l'isolation thermique des logements. La région PACA semble être le meilleur élève en termes d'efficience énergétique des logements, avec un quart de leur parc immobilier social comptant des logements de catégorie A et B. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cette question est absolument cruciale tant en termes écologiques qu'économiques et sociaux. En effet, si l'on se réfère à la [grille tarifaire](https://total.direct-energie.com/particuliers/parlons-energie/dossiers-energie/comprendre-le-marche-de-l-energie/que-signifie-la-classe-energie-d-un-logement) des étiquettes énergétiques, un logement de catégorie D coûtera 3 à 5 fois plus cher en termes d'électricité (estimé entre 750 et 1150€/an pour un logement de 100m²) qu'un logement de catégorie A (coût estimé < 250€/an pour 100m²). Ces surplus financiers causés par les énergies ne peuvent ainsi que contribuer à la pauvreté et à la fracture sociale en France pour près de 50% des foyers français.
+
+### La surface habitable des logements est-elle constante par région ?
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nous souhaitions ensuite investiguer la répartition régionale des logements en fonction de leur surface. En effet, afin de pouvoir mieux nous représenter le parc immobilier des logements sociaux en France, nous avons considéré qu'il serait informatif de voir la superficie dans laquelle vivent les foyers français, et quelle est la superficie dominantes proposée aux familles pour pouvoir s'installer et se fonder une vie.
+
+```{r echo=FALSE}
+
+df <- df_origin %>%
+  select(cols_kept, gat_surface)
+
+df <- gather(data = df, key = surface, value = nbr_surface, gat_surface, factor_key = TRUE)
+df$surface <- factor(df$surface, levels = c("surface_habitable_nbr_logements_moins_de_15m2",
+                                        "surface_habitable_nbr_logements_16_30m2",
+                                        "surface_habitable_nbr_logements_31_60m2",
+                                        "surface_habitable_nbr_logements_61_90m2",
+                                        "surface_habitable_nbr_logements_plus_de_90m2"))
+
+df %>%
+  filter(annee == 2018) %>%
+  dplyr::mutate(surface = plyr::revalue(surface, c("surface_habitable_nbr_logements_moins_de_15m2" = "< 15m²",
+                                            "surface_habitable_nbr_logements_16_30m2" = "16-30m²",
+                                            "surface_habitable_nbr_logements_31_60m2" = "31-60m²",
+                                            "surface_habitable_nbr_logements_61_90m2" = "61-90m²",
+                                            "surface_habitable_nbr_logements_plus_de_90m2" = "> 90m²"))) %>%
+  group_by(regionName, surface) %>%
+  dplyr::mutate(sum_surface = sum(nbr_surface)) %>%      #La représentation treemap utilisant les proportions,
+  select(regionName, surface, sum_surface) %>%    #le graphique serait identique en plotant les proportions au lieu de la somme
+  distinct() %>%
+  ggplot(aes(area = sum_surface, fill = surface, group = surface, subgroup = surface, label = regionName)) +
+  geom_treemap() +
+  geom_treemap_subgroup_border() +
+  geom_treemap_text(colour = "black", place = "center", reflow = T) + 
+  scale_fill_viridis_d() +
+  theme(plot.caption=element_text(hjust=0),
+        plot.title=element_text(face="bold", hjust = 0.5))+
+  labs(title="Répartition des logements\nen fonction de leur surface")
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;D'après le graphique ci-dessus, la grande majorité des logements français ont une superficie allant de 60 à 90m², et les proportions en termes de quantité de logement pour chaque catégorie de superficie semble rester constantes par région. Par exemple, la région Auvergne-Rhône Alpes est de manière constante la troisième région à proposer des logements de plus de 30m², 60m² et 90m². Ainsi, certaines régions ne favoriseront pas plus que d'autres la création de logements de plus de 90m² ni ne proposeront plus de logements de moins de 30m² que d'autres. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ainsi, il y a autant de foyers dans chaque région vivant dans chaque catégorie de foyers *ceteris paribus*. Enfin, les logements d'une superficie inférieure à 15m² représentent une partie marginale du nombre de logements sociaux proposés, on peut en effet à peine distinguer sur le graphique la zone correspondant à cette catégorie de surface.
+
+### Répartition des superficies de logements en fonction de la zone de construction
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Les résultats ci-dessus confirment bien une certaine équité régionale dans la proportion de logements pour des surfaces données. Toutefois nous souhaitions poursuivre l'investigation plus loin en vérifiant si des disparités n'existeraient pas non pas entre régions, mais cette fois-ci en fonction du type de quartier dans lequel est implanté le logement. Ainsi, la question que nous nous sommes posés pour cette partie était la suivante : Existe-t-il aussi une équité dans la superficie des logements sociaux en France dans les quartiers en zone prioritaire et ceux en zone non prioritaire ?
+
+```{r echo=FALSE}
+
+df_origin %>%
+  select(cols_kept, gat_qvp) %>%
+  filter(annee == 2018) %>%
+  gather(data = ., key = qvp, value = nbr_qvp, gat_qvp, factor_key = TRUE) %>%
+  mutate(qvp = fct_recode(qvp, "Zone Prioritaire" = "QVP_nbr_logements_quartier_prioritaire",
+                               "Zone non Prioritaire" = "QVP_nbr_logements_quartier_non_prioritaire")) %>%
+  filter(moyenne_surface_habitable_logement <= quantile(moyenne_surface_habitable_logement, 0.995), 
+         moyenne_surface_habitable_logement >= quantile(moyenne_surface_habitable_logement, 0.005)) %>%
+  arrange(nom_commune) %>%
+  group_by(nom_commune) %>%
+  ggplot(aes(x = moyenne_surface_habitable_logement, y = nbr_qvp, group = qvp)) +
+    geom_point(aes(col = qvp), alpha = 0.7, shape = 16, size = 1) +
+    scale_color_viridis_d() +
+    theme(plot.title = element_text(hjust = 0.5),
+          panel.background = element_rect("#BDC4C7"),
+          legend.key = element_rect(fill = "#BDC4C7")) +
+    ggtitle("Corrélation Surface du logement x Nombre de logements\nen fonction du type de zone") +
+    xlab("Surface des logements de chaque ville en m²") +
+    ylab("Nombre de logements dans une ville\n") +
+    labs(caption = "\nNB : Les 2,5 percentiles inf. et sup. ont été enlevés.") +
+    guides(color=guide_legend(title="Type de Zone", override.aes = list(size = 5)))
+
+
+  
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Comme précisé sur le graphique, nous avons enlevé de ce graphique les villes se situant dans les 2,5 percentiles supérieurs et inférieurs pour deux raisons. Tout d'abord, cela nous a permis d'enlever certaines valeurs qui nous paraissaient aberrantes, une ville ayant en effet eu une superficie moyenne de ses logements sociaux d'environ 300m², ce qui semble assez peu probable. Comme nous représentons graphiquement chaque ville par un point, il convient d'être plus conservateurs afin de préserver la véracité de nos données. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;De plus, ces valeurs rendaient le graphique plus difficilement lisible en allongeant inutilement l'échelle pour représenter une quantité marginale de points. Le graphique en lui-même présente une superposition quasi-parfaite de la répartition de la surface des logements, cela que ce dernier fasse partie d'un quartier en zone prioritaire ou non. Ainsi, les logements des quartiers en zone non-prioritaire ne sont ni favorisés ni défavorisés en termes de superficie moyenne de leur logement par rapport aux logements des quartiers en zone prioritaire et inversement.
+
+# Conclusion
+
+En conclusion nous avons retenu trois points principaux lors de l'analyse de ces données. 
+
+## Le volume des données
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Le volume à traiter lors de la phase de préparation a entrainé un certain nombre de contraintes. En effet R utilise la mémoire vive pour stocker et réaliser des opérations sur les données. En travaillant sur des données stockées localement, nous avons dû charger toutes les données en mémoire vive, ce qui a ralentit les traitements au point d'avoir obtenu régulièrement des plantages mémoire du logiciel. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Pour contourner ces problèmes, nous avons dû adapter nos méthodes de travail. Pour exemple, nous avons créé des identifiants numériques pour les chaines de caractères pour servir d'index, allégeant par là le traitement. De plus, nos tentatives pour utiliser le logiciel Open Refine pour le nettoyage des données se sont soldées par un échec pour ces mêmes problèmes de mémoire.
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Ces contraintes sont matériels et sont liés à un traitement en local, l'accès à un serveur voir à un cluster aurait grandement facilité le travail, nottament vis à vis de la vitesse de traitement. Nous aurions également pu charger les données dans un SGBD après une première opération de traitement mais sans les agréger, puis faire appel à ces données en fonction des besoins. Cette méthode aurait eu le mérite de ne perdre aucune information, contrairement à celle que nous avons employé : nous ne pouvons nottament pas croiser deux données qualitatives entre elles. Les réserves que nous émettons concerne une fois encore les temps de traitements, qui auraient pu rendre la future exploitation d'un site impossible sur la base de ces données.
+
+## Pré-traitements et datavisualisation
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Pour cette partie, nous avons fait face à plusieurs difficultés. Tout d’abord, le rendu statique rend plus complexe l’approche théorique que nous pourrions adopter car le format restreint la granularité que nous pouvons employer pour visualiser les données. En effet si nous avions choisi d’analyser certains marqueurs par villes, nous aurions dû être sélectifs sur les villes sélectionnées et ainsi perdre l’information fournie par les autres villes. Il en va de même pour le niveau du département. En rendant le graphique dynamique, nous aurions pu choisir le niveau qui nous intéressait et ainsi avoir des données aussi fidèles que possible.
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;De plus, le prétraitement des données –qui était déjà contraint par des capacités matérielles- a contraint les données que nous pouvions choisir de visualiser. En effet, le format le plus optimal sur R pour de la datavisualisation reste le format long de données. Toutefois, comme nous l’avons mentionné, ce format n’était pas adapté à la quantité de données que nous avions recueillies. Ainsi, ces contraintes ont malheureusement joué sur les croisements de données que nous avons pu opérer.
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dans l’ensemble, nous pensons que nous avons comprit le problème principal que nous avons eu en travaillant sur ce projet et que nous ne répéterons pas : Analyser des données sans avoir suffisamment d’hypothèses préalables qui nous permettent de réduire de manière sélective les données. Toutefois, ce choix était lui aussi motivé. Nous savions en effet qu’un second projet se basant sur ces données devrait être réalisé par la suite dans le cadre de la création d’un tableau de bord interactif. Ainsi, afin de pouvoir combiner les besoins de chacun des deux projets, nous avons fait le choix d’en conserver un maximum.
