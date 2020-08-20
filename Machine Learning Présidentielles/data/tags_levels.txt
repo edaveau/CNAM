@@ -1,0 +1,19 @@
+# Level and description of the tags within the <TEI> tag (where TEI = level 0)
+
+<text>				1			Identifies the beginning and end of the tweets
+<body>				2			Works as <text>, is just a sublevel
+<post>				3			Identifies a single post
+<p>					4			Identifies the content of a tweet
+<distinct>			5			Identifies a hashtag
+<ident>				6			Specifies the identifier (eg. #)
+<rs>				6			Specifies the hashtag link and word
+<addressingTerm>	5			Works as <distinct> for @
+<addressMarker>		6			Specifies the identifier (eg. @)
+<addressee>			6			Specifies the person link and pseudo
+<ref>				5			Identifies a link
+<trailer>			4			Identifies the trailer of a tweet (fav, rt...)
+<fs>				5			Identifies the list of objects within the trailer
+<f>					6			Identifies each component of the trailer (fav, rt...)
+<binary>			7			Used for RTs (from RT yes/no)
+<numeric>			7			Allows to display a number
+<string>			7			Allows to display a string

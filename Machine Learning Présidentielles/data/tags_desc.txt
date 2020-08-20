@@ -1,0 +1,98 @@
+<catDesc>			UNUSED				1 occurence in the <teiHeader>, not informative
+<derivation>		UNUSED				1 occurence in the <teiHeader>, not informative
+<segmentation>		UNUSED				1 occurence in the <teiHeader>, not informative
+<f>					USED				Within the <fs> tag, contains 3 information :
+										- "medium" : eg. Tweeter for Android, Twitter Web Client, Twitter for iPhone...
+										- "favoritecount" : Numeric value, count of the amount a favorites a tweet has
+										- "retweetcount" : Numeric value, count of the amount a retweets a tweet has
+<tagsDecl>			UNUSED				1 occurence in the <teiHeader>, not informative (information about tags)
+<classDecl>			UNUSED				1 occurence in the <teiHeader>, not informative (information about classification codes)
+<vNot>				UNUSED				6 occurences all in the <teiHeader>, not informative 
+<country>			UNUSED				1 occurence in the <teiHeader>, not informative : <country type = "ISO3166-1">FRANCE</country>
+<fileDesc>			UNUSED				1 occurence in the <teiHeader>, not informative
+<quote>				UNUSED				3 occurences all in the <teiHeader>, not informative
+<vDefault>			UNUSED				8 occurences all in the <teiHeader>, not informative
+<teiHeader>			UNUSED - READ		Albeit not used, may contain important information about the people who created the file
+<keywords>			UNUSED				6 occurences all in the <teiHeader>, not informative, contains keywords for the project
+<addressingTerm>	USED				Contains the tags <adressMarker> and <adressee>. Contains all @someone information
+<profileDesc>		UNUSED				1 occurence in the <teiHeader>, contains all information about tags + misc information
+<person>			UNUSED				11 occurences all in the <teiHeader>, relates to the list of the 11 candidates
+<factuality>		UNUSED				1 occurence in the <teiHeader>, not informative
+<placeName>			UNUSED				1 occurence in the <teiHeader>, not informative (place = Twitter website)
+<constitution>		UNUSED				1 occurence in the <teiHeader>, not informative ("Selected through automatic processing.")	
+<desc>				UNUSED				1 occurence in the <teiHeader>, not informative ("describes the project")
+<TEI>				UNUSED				1 occurence in the <teiHeader>, marks the namespace
+<trailer>			USED				Gives all the information in the trailer of a Tweet (medium, favoritecount & retweetcount)
+<creation>			UNUSED				1 occurence in the <teiHeader>, marks the creation time (beginning & end)
+<seriesStmt>		UNUSED				1 occurence in the <teiHeader>, not informative
+<tagUsage>			UNUSED - READ		6 occurences all in the <teiHeader>, contains information about the xml
+<item>				UNUSED				11 occurences all in the <teiHeader>, not informative
+<orgName>			UNUSED				25 occurences all in the <teiHeader>, gives information about the organization name
+<p>					USED				Directly contains all the tweets text
+<text>				USED				Comes right after the </teiHeader> tag, second to last tag in the document (last: </TEI>)
+<addressee>			USED				<addressingTerm><addressMarker>@</addressMarker><addressee type="twitter-account"
+										ref="#cmr-présidentielle-p102722347">jeanlassalle</addressee></addressingTerm>
+<vAlt>				UNUSED				3 occurences all in the <teiHeader>, not informative
+<binary>			USED				Boolean contained in other tags such as <f name="isRetweet"><binary value="true"/></f>
+<preparedness>		UNUSED				1 occurence in the <teiHeader>, not informative
+<sponsor>			UNUSED				3 occurences all in the <teiHeader>, gives the sponsors of the project
+<projectDesc>		UNUSED - READ		1 occurence in the <teiHeader>, gives information about the project
+<licence>			UNUSED				1 occurence in the <teiHeader>, not informative (CC0-BY)
+<fDecl>				UNUSED - READ		9 occurences all in the <teiHeader>, gives information about booleans/binaries in the file
+<surname>			UNUSED				9 occurences all in the <teiHeader>, gives information about the document's authors
+<email>				UNUSED				9 occurences all in the <teiHeader>, gives information about the document's authors' email
+<language>			UNUSED				1 occurence in the <teiHeader>, not informative (français)
+<particDesc>		UNUSED				1 occurence in the <teiHeader>, not informative
+<purpose>			UNUSED				1 occurence in the <teiHeader>, not informative ("social discussion")
+<langUsage>			UNUSED				1 occurence in the <teiHeader>, not informative (français)
+<channel>			UNUSED				1 occurence in the <teiHeader>, not informative
+<addName>			UNUSED				11 occurences all in the <teiHeader>, not informative (candidates names)
+<namespace>			UNUSED ?			1 occurence in the <teiHeader>, gives the namespace (http://wiki.tei-c.org/index.php/SIG:CMC/Draft:_A_basic_schema_for_representing_CMC_in_TEI)
+<fDescr>			UNUSED - READ		9 occurences all in the <teiHeader>, is used to describe <fDecl>
+<publicationStmt>	UNUSED				1 occurence in the <teiHeader>, not informative
+<normalization>		UNUSED				1 occurence in the <teiHeader>, not informative
+<rs>				USED				Text of a hashtag
+<note>				UNUSED				3 occurences all in the <teiHeader>, not informative
+<fs>				USED				Comes everytime after the <trailer> tag, contains all <f> tags
+<encodingDesc>		UNUSED				1 occurence in the <teiHeader>, not informative	
+<geogName>			UNUSED				1 occurence in the <teiHeader>, not informative	(France), within profileDesc tag
+<val>				UNUSED - READ		7 occurences all in the <teiHeader>, eg. <val>twitter-retweet</val> then the element contains <val>RT</val>
+<ref>				USED				Contains URLs
+<vRange>			UNUSED - READ		9 occurences all in the <teiHeader>, seems to give information about default values (eg. default retweet) and possible values
+<respStmt>			UNUSED				9 occurences all in the <teiHeader>, not informative
+<bibl>				UNUSED				1 occurence in the <teiHeader>, not informative
+<textClass>			UNUSED				1 occurence in the <teiHeader>, not informative
+<domain>			UNUSED				1 occurence in the <teiHeader>, not informative
+<publisher>			UNUSED				2 occurences all in the <teiHeader>, not informative
+<editorialDecl>		UNUSED				1 occurence in the <teiHeader>, not informative	
+<sourceDesc>		UNUSED				1 occurence in the <teiHeader>, not informative	(tag containing all <name> tags)
+<numeric>			USED				Used to give a number (favs, RTs, ...)
+<addressMarker>		USED				Allows the specification of the @ symbol
+<list>				UNUSED				4 occurences all in the <teiHeader>, not informative
+<term>				UNUSED				12 occurences all in the <teiHeader>, not informative
+<textDesc>			UNUSED				1 occurence in the <teiHeader>, not informative
+<titleStmt>			UNUSED				1 occurence in the <teiHeader>, not informative
+<name>				UNUSED ?			23 occurences all in the <teiHeader>, gives information about the different names (project, authors...)
+<persName>			UNUSED ?			23 occurences all in the <teiHeader>, gives information about the different names (project, authors...)
+<title>				UNUSED				2 occurences all in the <teiHeader>, not informative
+<idno>				UNUSED				7 occurences all in the <teiHeader>, not informative
+<availability>		UNUSED				1 occurence in the <teiHeader>, not informative
+<att>				UNUSED				5 occurences all in the <teiHeader>, not informative (seems to create bold or italic)
+<taxonomy>			UNUSED				1 occurence in the <teiHeader>, not informative
+<string>			USED				Indicates the origin of the tweet (eg. Tweeter for iPhone, Tweeter for Android...)
+<location>			UNUSED				1 occurence in the <teiHeader>, not informative (Internet)
+<date>				UNUSED				2 occurences all in the <teiHeader>, not informative (data collection span & document written on date)
+<post>				USED				Delimitates all tweets (1 post = 1 tweet with all information)
+<fsDecl>			UNUSED				1 occurence in the <teiHeader>, not informative
+<category>			UNUSED				1 occurence in the <teiHeader>, not informative (tweet)
+<extent>			UNUSED				1 occurence in the <teiHeader>, not informative (11 user accounts / twittos ; 44 979 posts)
+<gi>				UNUSED - READ		16 occurences all in the <teiHeader>, describes the tags content
+<listPerson>		UNUSED				1 occurence in the <teiHeader>, not informative (contains the list of the 11 candidates)
+<fsdDecl>			UNUSED				1 occurence in the <teiHeader>, not informative
+<body>				USED				Contains all the body of the document (all the posts), contained within the <TEI><text>
+<author>			UNUSED				1 occurence in the <teiHeader>, not informative (author of the document)
+<distinct>			USED				Delimitates the type of reference in the tweet (retweet, #, @...)
+<interaction>		UNUSED				1 occurence in the <teiHeader>, not informative
+<principal>			UNUSED				1 occurence in the <teiHeader>, not informative (information about the author of the document)
+<resp>				UNUSED				19 occurences all in the <teiHeader>, not informative
+<ident>				USED				Specifies the identifier (eg. #)
