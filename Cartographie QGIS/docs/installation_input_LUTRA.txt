@@ -1,0 +1,10 @@
+ Installer l'application depuis l'AppStore (chercher "Lutra Input")
+Se créer un compte Mergin : https://public.cloudmergin.com/
+Installer l'extension Mergin sur QGIS
+Fermer/Rouvrir QGIS
+Dans le panneau Explorateur (dans la barre des tâches en haut, clic droit, cocher "Panneau Explorateur") :
+	- Faire un clic droit sur Mergin
+	- Cliquer sur "Configure"
+Sur QGIS, dans l'onglet "My Projects", faire clic droit : "Create New Project"
+Renseigner les champs
+Retourner sur https://public.cloudmergin.com/, se connecter à son compte, sélectionner le projet, puis faire un glisser/déposer du projet QGIS sur la page web.

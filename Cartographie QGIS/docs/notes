@@ -1,0 +1,11 @@
+https://trello.com/b/kRExEGfF/carto-le-loroux-bottereau
+
+Sources de données :
+	- Général : https://etalab.gouv.fr
+	- Flux :
+		> Géopal (flux WMS) : https://carto.geopal.org/cgi-bin/mapserv?SERVICE=WMS&REQUEST=GetCapabilities
+		> Géopal (flux WFS) : https://carto.geopal.org/cgi-bin/mapservwfs?request=GetCapabilities&service=WFS
+
+
+	-Données agriculture : https://www.data.gouv.fr/fr/datasets/registre-parcellaire-graphique-rpg-contours-des-parcelles-et-ilots-culturaux-et-leur-groupe-de-cultures-majoritaire/
+	- Données parcellaires 

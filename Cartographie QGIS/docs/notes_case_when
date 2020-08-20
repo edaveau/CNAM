@@ -1,0 +1,7 @@
+CASE 
+WHEN "l_3"='Maraîchage, horticulture' THEN 'Arboriculture, pépinières, maraîchage et horticulture'
+WHEN "l_3"='Arboriculture, pépinières' THEN 'Arboriculture, pépinières, maraîchage et horticulture'
+WHEN "l_3"='Prairies' THEN 'Prairies'
+WHEN "l_3"='Vignoble' THEN 'Vignoble'
+WHEN "l_3"='Cultures annuelles et terres labourées' THEN 'Cultures annuelles et terres labourées'
+END
