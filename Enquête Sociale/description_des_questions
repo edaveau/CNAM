@@ -1,0 +1,43 @@
+timestamp - Date et Heure à laquelle a été complété le questionnaire
+participation - Consentement à la participation à l'étude
+Likert "1 - Pas du tout d'accord" - "5 - Tout à fait d'accord"
+bloc1_q1 - La communauté scientifique sera davantage consultée par le gouvernement.
+bloc1_q2 - Les laboratoires publics auront plus de moyens.
+bloc1_q3 - Le processus scientifique sera accéléré (demande de financements, réalisation d’étude, analyse, publication des résultats).
+bloc1_q4 - Les laboratoires français pourront continuer de rivaliser avec les recherches issues des pays anglo-saxons.
+bloc1_q5 - L’éducation à la culture scientifique sera plus développée dans l’éducation nationale.
+bloc1_q6 - Les scientifiques seront plus présents dans le paysage public.
+bloc2_q1 - Les décisions politiques sur la gestion de la crise se sont faites sur la base de preuves scientifiques.
+bloc2_q2 - Les scientifiques se sont trop impliqués dans les politiques de santé.
+bloc2_q3 - Les scientifiques ont maintenant les solutions pour ralentir la diffusion du virus.
+bloc2_q4 - Les scientifiques ne comprennent pas encore le virus.
+bloc2_q5 - Répondez "4 - D'accord" à cette question.
+bloc2_q6 - Les scientifiques parviendront à fournir un vaccin permettant de combattre le coronavirus.
+Pour gérer la crise, les politiques se sont appuyés sur l'avis :
+bloc3_q1 - Des scientifiques
+bloc3_q2 - Des universités
+bloc3_q3 - Des associations et ONG
+bloc3_q4 - Des start-ups
+bloc3_q5 - Des citoyens
+bloc3_q6 - Des entreprises
+bloc3_q7 - Des pouvoirs publics
+bloc4_q1 - J’ai suivi les débats relatifs à l’hydroxychloroquine (oui/non)
+bloc5_q1 - J’ai compris pourquoi l’usage de l’hydroxychloroquine est controversé
+bloc5_q2 - J’ai su identifier les informations inexactes au cours de ces débats.
+bloc5_q3 - J’ai trouvé ces débats utiles pour faire avancer la recherche sur le traitement.
+bloc5_q4 - Les scientifiques ont su reconnaître les informations de mauvaise qualité liées au coronavirus
+bloc6_q1 - J’ai une bonne connaissance globale du fonctionnement de la recherche scientifique.
+bloc6_q2 - En tant qu’adulte, je vois l’intérêt d’avoir une compréhension de la méthode scientifique.
+bloc6_q3 - Afin d’améliorer la qualité des débats, l’approche scientifique devrait être intégrée au parcours scolaire.
+qcm_q1 - Le processus scientifique consiste à : (Faire un état de l’art, Formuler des hypothèses, opérationnaliser, analyser, publier.)
+bloc7_q1 - Je connais et je peux expliquer avec mes propres mots les différences entre une théorie et une hypothèse.
+bloc7_q2 - Je suis capable d’expliquer avec mes propres mots ce qu’est une étude contrôlée aléatoire en double aveugle.
+yob - Année de naissance
+gender - Genre auquel s'identifie le participant
+french_maternal - Le français est-il votre langue maternelle ?
+french_practice - Si non, depuis combien d’années pratiquez-vous le français ?
+french_residence - Votre résidence principale est-elle en France ?
+occupation - Quel est votre secteur d’activité ?
+medical_worker - Travaillez-vous ou avez-vous déjà travaillé dans le domaine médical / paramédical ?
+coronavirus - Avez-vous (vous ou un membre de votre entourage) été contaminé par le coronavirus ?
+diploma - Quel est votre dernier diplôme obtenu ?
