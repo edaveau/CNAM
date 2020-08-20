@@ -1,0 +1,25 @@
+https://developer.twitter.com/en/application/use-case
+
+> Academic > Student > Next
+> Compléter les champs > Next
+> I am Emmanuel Daveau, current student at the CNAM, which is a French Formation Institute. 
+	I am doing a Masters in Data Science, and one of our courses is in Social Network Analysis. 
+	For this course, we are required to retrieve data from Twitter in order to analyze them doing a graph analysis. 
+	We might be asked to do more work with Twitter API later on, which is why I would appreciate you accepting my request.
+> We would like to retrieve data from the hashtags related to roleplay, in order to see what user networks are built upon this theme. 
+	Therefore, we will manipulate users pseudonames. In order to guarantee the safety and confidentiality of the users, 
+	all the data obtained in this project will be strictly kept safely on our personal laptops. Furthermore, only the final results will be 
+	present in the final assignment, and all the data will always be kept in a rigorously academic environment.
+> Since we will collect data from this theme, one of our goals is to go beyond our assignment and create a temporary bot 
+	which would post a few tweets related to roleplay. Once we will have showed the result, we will delete this bot.
+> All content we will gather from Twitter will be displayed only in the context of our Masters. 
+	Therefore, it will always be kept in a strictly private and academic environment.
+> No
+
+Une fois la validation effectuée, se connecter sur le portail développeur de Twitter, puis créer une nouvelle application
+> App name : Donner un nom à l'application
+> Application description : Décrire brièvement l'application 
+> Website URL : Mettre l'adresse du profil eg. twitter.com/tanderson
+> Callback URL : Mettre l'adresse du profil eg. twitter.com/tanderson
+
+Aller ensuite dans "Keys and Token", et récupérer les clés
