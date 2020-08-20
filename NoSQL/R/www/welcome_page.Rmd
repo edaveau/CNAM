@@ -1,0 +1,24 @@
+---
+title: "Médiathèque de Nantes"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Site web de la médiathèque de Nantes
+
+&nbsp;&nbsp;&nbsp;&nbsp;Suite à la récente migration de ses serveurs, la médiathèque de Nantes est fière de vous accueillir sur ce nouveau portail de gestion des utilisateurs et des documents en ligne. A partir d'ici, vous pourrez :
+
+*  Voir les données générales liées au réseau social interne à la médiathèque
+*  Consulter les documents disponibles à l'emprunt
+*  Ajouter, supprimer ou modifier des informations concernant les utilisateurs
+
+N'hésitez pas à consulter les différentes rubriques. Si jamais vous aviez des retours ou des suggestions d'amélioration du site web, n'hésitez pas à en faire part en remontant l'information à l'[administrateur](administrateur@mediatheque-nantes.fr). 
+
+En prime, voici un petit chien :
+
+```{r, echo=FALSE, fig.align='center'}
+knitr::include_graphics("../img/pupper.png")
+```

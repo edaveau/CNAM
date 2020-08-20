@@ -1,0 +1,41 @@
+# Install & run desktop version of Neo4J
+# Create a new database "MediathequeNeo"
+# Create a new graph
+# Plugins > APOC > Install
+# Install the relevant .jar dependencies :
+cd /home/<user>/.config/'Neo4j Desktop'/Application/neo4jDatabases/<database-id-0123456-789/installation-4.0.3/plugins
+wget https://repo1.maven.org/maven2/org/mongodb/bson/3.4.2/bson-3.4.2.jar
+wget https://repo1.maven.org/maven2/org/mongodb/mongo-java-driver/3.4.2/mongo-java-driver-3.4.2.jar
+wget https://repo1.maven.org/maven2/org/mongodb/mongodb-driver/3.4.2/mongodb-driver-3.4.2.jar
+wget https://repo1.maven.org/maven2/org/mongodb/mongodb-driver-core/3.4.2/mongodb-driver-core-3.4.2.jar
+
+# Start the local graph, then query :
+call apoc.mongodb.get('mongodb://localhost:27017', 'MediathequeNeo', 'exemplaires', {}) yield value
+return value
+
+# Let's test some queries
+call apoc.mongodb.get('mongodb://localhost:27017', 'MediathequeNeo', 'users_ref', {}) yield value return value.role
+call apoc.mongodb.get('mongodb://localhost:27017', 'MediathequeNeo', 'users_ref', {}) yield value return value.follows
+
+# Display our nodes
+call apoc.mongodb.get('mongodb://localhost:27017', 'MediathequeNeo', 'users_ref', {}) yield value as person
+merge (p:Person {name:person.name}) on create set p.registration_date = person.registration_date
+return p
+
+# Display nodes and relationships
+call apoc.mongodb.get('mongodb://localhost:27017', 'MediathequeNeo', 'users_ref', {}) yield value as person
+WITH collect(person) as people
+FOREACH (personDetails in people |
+	MERGE (p:Person{id:personDetails._id})
+	ON CREATE SET  p.registrationDate = personDetails.registrationDate,
+						p.name = personDetails.name)
+WITH people
+UNWIND people AS personDetails
+MATCH (follower:Person{id:personDetails._id})
+UNWIND personDetails.follows AS followsRecords
+MATCH (followed:Person) WHERE followed.id IN followsRecords.id
+MERGE (follower)-[:FOLLOWS]->(followed)
+RETURN *
+
+# Then add an unicity constraint
+CREATE CONSTRAINT  ON (p:Person) ASSERT p.id IS UNIQUE
